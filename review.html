@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>回顧紀錄</title>
+  <style>
+    :root {
+      --ink: #17212b;
+      --muted: #64707d;
+      --line: #d7dee6;
+      --panel: #ffffff;
+      --surface: #f4f7fa;
+      --accent: #176b87;
+      --danger: #b42318;
+      --danger-bg: #fff1f0;
+      --ok: #16794c;
+      --ok-bg: #eaf7f0;
+      --warn: #9a6700;
+      --warn-bg: #fff7df;
+      --shadow: 0 1px 3px rgba(23, 33, 43, .08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--surface);
+      font-family: "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      padding: 14px 24px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    .topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .back-link {
+      color: var(--accent);
+      font-weight: 750;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, .8fr) minmax(220px, .8fr) minmax(120px, .35fr);
+      gap: 10px;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      margin-bottom: 4px;
+    }
+
+    input, button {
+      font: inherit;
+    }
+
+    input {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 7px 9px;
+    }
+
+    button {
+      min-height: 36px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      padding: 7px 12px;
+      cursor: pointer;
+      font-weight: 750;
+    }
+
+    button.secondary {
+      background: #fff;
+      color: var(--accent);
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .status-line {
+      color: var(--muted);
+      font-size: 12px;
+      min-height: 18px;
+      margin-top: 8px;
+    }
+
+    main {
+      padding: 14px 24px 28px;
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) minmax(520px, 1fr);
+      gap: 14px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel h2 {
+      margin: 0;
+      padding: 10px 12px;
+      font-size: 16px;
+      border-bottom: 1px solid var(--line);
+      background: #edf3f7;
+    }
+
+    .record-list {
+      max-height: calc(100vh - 176px);
+      overflow: auto;
+    }
+
+    .record-item {
+      width: 100%;
+      display: block;
+      text-align: left;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      border-radius: 0;
+      background: #fff;
+      color: var(--ink);
+      padding: 10px 12px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .record-item:hover,
+    .record-item.active {
+      background: #eaf4f8;
+    }
+
+    .record-item strong {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 3px;
+      overflow-wrap: anywhere;
+    }
+
+    .record-item span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .detail {
+      padding: 12px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(90px, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 8px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      background: #fff;
+      min-height: 34px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .metric strong {
+      font-size: 19px;
+      line-height: 1;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: 120px minmax(0, 1fr);
+      gap: 6px 10px;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    .meta strong {
+      color: var(--ink);
+      overflow-wrap: anywhere;
+    }
+
+    .table-wrap {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: auto;
+      max-height: calc(100vh - 332px);
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1280px;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid #e7ecf1;
+      padding: 7px 8px;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      background: #fff;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #edf3f7;
+      font-size: 12px;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    tr.bad td { background: var(--danger-bg); }
+    tr.check td { background: var(--warn-bg); }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .pill.ok { color: var(--ok); background: var(--ok-bg); }
+    .pill.bad { color: var(--danger); background: #ffe4e0; }
+    .pill.check { color: var(--warn); background: #fff1bd; }
+
+    .empty {
+      padding: 36px 18px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    @media (max-width: 980px) {
+      .toolbar, main {
+        grid-template-columns: 1fr;
+      }
+      header, main {
+        padding-left: 14px;
+        padding-right: 14px;
+      }
+      .record-list, .table-wrap {
+        max-height: none;
+      }
+      .summary {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="topline">
+      <h1>回顧紀錄</h1>
+      <a class="back-link" href="急診審查.html">返回急診手術審查</a>
+    </div>
+    <div class="toolbar">
+      <div>
+        <label for="githubToken">GitHub Token</label>
+        <input id="githubToken" type="password" autocomplete="off" placeholder="公開 repo 可留空；私有或高頻查詢請填 token">
+      </div>
+      <div>
+        <label for="cloudPassword">加密密碼</label>
+        <input id="cloudPassword" type="password" autocomplete="off" placeholder="輸入上傳時使用的密碼">
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button id="refreshBtn">查詢紀錄</button>
+      </div>
+    </div>
+    <div id="statusLine" class="status-line">雲端位置：chenjica/ER-surgery- 的 reviews/ 目錄。</div>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>雲端紀錄</h2>
+      <div id="recordList" class="record-list">
+        <div class="empty">尚未查詢</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>回顧內容</h2>
+      <div id="detail" class="detail">
+        <div class="empty">請先查詢紀錄，選擇一筆後輸入密碼載入。</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const CLOUD_OWNER = "chenjica";
+    const CLOUD_REPO = "ER-surgery-";
+    const CLOUD_DIR = "reviews";
+
+    let cloudItems = [];
+    let selectedPath = "";
+
+    const githubToken = document.getElementById("githubToken");
+    const cloudPassword = document.getElementById("cloudPassword");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const recordList = document.getElementById("recordList");
+    const detail = document.getElementById("detail");
+    const statusLine = document.getElementById("statusLine");
+
+    refreshBtn.addEventListener("click", listCloudReviews);
+
+    listCloudReviews();
+
+    async function listCloudReviews() {
+      try {
+        setStatus("正在查詢雲端紀錄...");
+        refreshBtn.disabled = true;
+        const response = await githubFetch(`${githubApiBase()}/contents/${CLOUD_DIR}`, githubToken.value.trim() || undefined);
+        if (response.status === 404) {
+          cloudItems = [];
+        } else if (!response.ok) {
+          throw new Error(await response.text());
+        } else {
+          const data = await response.json();
+          cloudItems = Array.isArray(data)
+            ? data.filter(item => item.type === "file" && item.name.endsWith(".review.json")).sort((a, b) => b.name.localeCompare(a.name))
+            : [];
+        }
+        renderRecordList();
+        setStatus(`查詢完成，共 ${cloudItems.length} 筆雲端紀錄。`);
+      } catch (error) {
+        setStatus(`查詢失敗：${error.message}`, "bad");
+      } finally {
+        refreshBtn.disabled = false;
+      }
+    }
+
+    function renderRecordList() {
+      if (!cloudItems.length) {
+        recordList.innerHTML = `<div class="empty">沒有雲端紀錄</div>`;
+        return;
+      }
+      recordList.innerHTML = cloudItems.map(item => {
+        const parsed = parseReviewFileName(item.name);
+        return `
+          <button class="record-item ${item.path === selectedPath ? "active" : ""}" data-path="${escapeAttr(item.path)}">
+            <strong>${escapeHtml(parsed.fileName || item.name)}</strong>
+            <span>${escapeHtml(parsed.dateText || "時間未解析")} · ${formatBytes(item.size)}</span>
+          </button>
+        `;
+      }).join("");
+      recordList.querySelectorAll(".record-item").forEach(button => button.addEventListener("click", () => loadCloudReview(button.dataset.path)));
+    }
+
+    async function loadCloudReview(path) {
+      if (!cloudPassword.value) {
+        setStatus("請先輸入加密密碼。", "bad");
+        return;
+      }
+      try {
+        selectedPath = path;
+        renderRecordList();
+        detail.innerHTML = `<div class="empty">正在下載並解密...</div>`;
+        setStatus("正在下載並解密...");
+        const response = await githubFetch(`${githubApiBase()}/contents/${encodePath(path)}`, githubToken.value.trim() || undefined);
+        if (!response.ok) throw new Error(await response.text());
+        const data = await response.json();
+        const encryptedText = base64ToText((data.content || "").replace(/\s+/g, ""));
+        const packageData = await decryptJson(JSON.parse(encryptedText), cloudPassword.value);
+        renderDetail(packageData, path);
+        setStatus(`已載入：${packageData.sourceFile?.name || path}`);
+      } catch (error) {
+        detail.innerHTML = `<div class="empty">載入失敗，請確認密碼與 Token。</div>`;
+        setStatus(`載入失敗：${error.message}`, "bad");
+      }
+    }
+
+    function renderDetail(packageData, path) {
+      const records = packageData.records || [];
+      const state = packageData.reviewState || {};
+      const counts = records.reduce((acc, record) => {
+        const status = record.audit?.status || "check";
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {});
+      detail.innerHTML = `
+        <div class="summary">
+          <div class="metric"><span>載入筆數</span><strong>${records.length}</strong></div>
+          <div class="metric"><span>符合</span><strong>${counts.ok || 0}</strong></div>
+          <div class="metric"><span>不符合</span><strong>${counts.bad || 0}</strong></div>
+          <div class="metric"><span>待確認</span><strong>${counts.check || 0}</strong></div>
+          <div class="metric"><span>審查紀錄</span><strong>${Object.keys(state).length}</strong></div>
+        </div>
+        <div class="meta">
+          <span>來源檔案</span><strong>${escapeHtml(packageData.sourceFile?.name || "")}</strong>
+          <span>上傳時間</span><strong>${escapeHtml(formatDateTime(packageData.uploadedAt))}</strong>
+          <span>雲端路徑</span><strong>${escapeHtml(path)}</strong>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>狀態</th>
+                <th>審查結果</th>
+                <th>審查備註</th>
+                <th>主治醫師申訴</th>
+                <th>申訴回覆</th>
+                <th>審核表類別</th>
+                <th>病歷號</th>
+                <th>病人姓名</th>
+                <th>主刀醫師姓名</th>
+                <th>診斷名稱</th>
+                <th>手術名稱</th>
+                <th>不符合項目</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${records.map(record => renderReviewRow(record, state[record.id] || {})).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderReviewRow(record, state) {
+      const status = record.audit?.status || "check";
+      const label = status === "ok" ? "符合" : status === "bad" ? "不符合" : "待確認";
+      const issues = record.audit?.issues?.length ? record.audit.issues.join("；") : "無";
+      return `
+        <tr class="${status === "bad" ? "bad" : status === "check" ? "check" : ""}">
+          <td><span class="pill ${status}">${label}</span></td>
+          <td>${escapeHtml(state.result || "")}</td>
+          <td>${escapeHtml(state.note || "")}</td>
+          <td>${escapeHtml(state.appeal || "")}</td>
+          <td>${escapeHtml(state.reply || "")}</td>
+          <td>${escapeHtml(record.category || "")}</td>
+          <td>${escapeHtml(record.chartNo || "")}</td>
+          <td>${escapeHtml(record.patient || "")}</td>
+          <td>${escapeHtml(record.surgeon || "")}</td>
+          <td>${escapeHtml(record.diagnosis || "")}</td>
+          <td>${escapeHtml(record.surgery || "")}</td>
+          <td>${escapeHtml(issues)}</td>
+        </tr>
+      `;
+    }
+
+    async function decryptJson(payload, password) {
+      const salt = base64ToBytes(payload.salt);
+      const iv = base64ToBytes(payload.iv);
+      const encrypted = base64ToBytes(payload.data);
+      const key = await deriveCloudKey(password, salt);
+      const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, encrypted);
+      return JSON.parse(new TextDecoder().decode(decrypted));
+    }
+
+    async function deriveCloudKey(password, salt) {
+      const baseKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
+      return crypto.subtle.deriveKey(
+        { name: "PBKDF2", salt, iterations: 250000, hash: "SHA-256" },
+        baseKey,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["decrypt"]
+      );
+    }
+
+    function githubFetch(url, token, options = {}) {
+      const headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        ...(options.headers || {})
+      };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      return fetch(url, { ...options, headers });
+    }
+
+    function githubApiBase() {
+      return `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}`;
+    }
+
+    function encodePath(path) {
+      return path.split("/").map(encodeURIComponent).join("/");
+    }
+
+    function parseReviewFileName(name) {
+      const match = name.match(/^(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})-\d+Z_(.+)\.review\.json$/);
+      if (!match) return { fileName: name, dateText: "" };
+      const stamp = match[1];
+      return { fileName: match[2].replace(/_/g, " "), dateText: `${stamp.slice(0, 10)} ${stamp.slice(11).replace(/-/g, ":")}` };
+    }
+
+    function formatDateTime(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.valueOf())) return value;
+      return date.toLocaleString("zh-TW", { hour12: false });
+    }
+
+    function formatBytes(bytes) {
+      if (!bytes) return "0 B";
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    }
+
+    function setStatus(message, level = "") {
+      statusLine.textContent = message;
+      statusLine.style.color = level === "bad" ? "var(--danger)" : "var(--muted)";
+    }
+
+    function base64ToBytes(base64) {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes;
+    }
+
+    function base64ToText(base64) {
+      return new TextDecoder().decode(base64ToBytes(base64));
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value);
+    }
+  </script>
+</body>
+</html>
