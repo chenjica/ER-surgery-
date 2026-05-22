@@ -208,6 +208,8 @@
       padding: 8px;
       vertical-align: top;
       background: #fff;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     th {
@@ -288,10 +290,16 @@
     .issue-list {
       margin: 0;
       padding-left: 18px;
-      min-width: 260px;
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
-    .issue-list li { margin-bottom: 3px; }
+    .issue-list li {
+      margin-bottom: 3px;
+      max-width: 100%;
+    }
 
     .match {
       min-width: 220px;
