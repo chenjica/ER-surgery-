@@ -219,6 +219,37 @@
       font-size: 12px;
       text-align: left;
       white-space: nowrap;
+      user-select: none;
+    }
+
+    th.resizable {
+      position: sticky;
+    }
+
+    .resize-handle {
+      position: absolute;
+      top: 0;
+      right: -3px;
+      width: 7px;
+      height: 100%;
+      cursor: col-resize;
+      z-index: 12;
+      touch-action: none;
+    }
+
+    .resize-handle::after {
+      content: "";
+      position: absolute;
+      top: 8px;
+      bottom: 8px;
+      left: 3px;
+      width: 1px;
+      background: transparent;
+    }
+
+    th.resizing .resize-handle::after,
+    .resize-handle:hover::after {
+      background: var(--accent);
     }
 
     tbody tr.flag td {
@@ -437,25 +468,25 @@
       <table>
         <thead>
           <tr>
-            <th class="sticky-col">狀態</th>
-            <th>不符合項目</th>
-            <th>規範命中</th>
-            <th>審查結果</th>
-            <th>審查備註</th>
-            <th>主治醫師申訴</th>
-            <th>申訴回覆</th>
-            <th>審核表類別</th>
-            <th>病歷號</th>
-            <th>病人姓名</th>
-            <th>主刀醫師姓名</th>
-            <th>診斷名稱</th>
-            <th>手術名稱</th>
-            <th>預定手術日</th>
-            <th>送單日</th>
-            <th>是否需要填寫</th>
-            <th>醫師是否完成</th>
-            <th>刀房是否完成</th>
-            <th>麻醉審核結果</th>
+            <th class="sticky-col" data-col="status">狀態</th>
+            <th data-col="issues">不符合項目</th>
+            <th data-col="match">規範命中</th>
+            <th data-col="reviewResult">審查結果</th>
+            <th data-col="reviewNote">審查備註</th>
+            <th data-col="appeal">主治醫師申訴</th>
+            <th data-col="reply">申訴回覆</th>
+            <th data-col="category">審核表類別</th>
+            <th data-col="chartNo">病歷號</th>
+            <th data-col="patient">病人姓名</th>
+            <th data-col="surgeon">主刀醫師姓名</th>
+            <th data-col="diagnosis">診斷名稱</th>
+            <th data-col="surgery">手術名稱</th>
+            <th data-col="operationDate">預定手術日</th>
+            <th data-col="submitDate">送單日</th>
+            <th data-col="needForm">是否需要填寫</th>
+            <th data-col="doctorDone">醫師是否完成</th>
+            <th data-col="orDone">刀房是否完成</th>
+            <th data-col="anesthesiaDone">麻醉審核結果</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -560,6 +591,7 @@
     let reviewState = new Map();
     let currentWorkbook = null;
     let cloudItems = [];
+    let columnWidths = loadColumnWidths();
 
     const fileInput = document.getElementById("fileInput");
     const categoryFilter = document.getElementById("categoryFilter");
@@ -588,6 +620,8 @@
     cloudReviewList.addEventListener("change", () => loadCloudBtn.disabled = !cloudReviewList.value);
 
     renderRules();
+    setupResizableColumns();
+    applyColumnWidths();
 
     function renderRules() {
       const grid = document.getElementById("rulesGrid");
@@ -841,29 +875,29 @@
 
       return `
         <tr class="${rowClass}" data-id="${escapeAttr(record.id)}">
-          <td class="sticky-col"><span class="status ${record.audit.status}">${statusLabel}</span></td>
-          <td>${issues}</td>
-          <td class="match">${matches}</td>
-          <td class="cell-edit cell-review-result">
+          <td class="sticky-col" data-col="status"><span class="status ${record.audit.status}">${statusLabel}</span></td>
+          <td data-col="issues">${issues}</td>
+          <td class="match" data-col="match">${matches}</td>
+          <td class="cell-edit cell-review-result" data-col="reviewResult">
             <select data-field="result">
               ${["合格", "不合格", "待確認"].map(value => `<option value="${value}" ${state.result === value ? "selected" : ""}>${value}</option>`).join("")}
             </select>
           </td>
-          <td class="cell-edit cell-review-note"><textarea data-field="note">${escapeHtml(state.note || "")}</textarea></td>
-          <td class="cell-edit"><textarea data-field="appeal">${escapeHtml(state.appeal || "")}</textarea></td>
-          <td class="cell-edit"><textarea data-field="reply">${escapeHtml(state.reply || "")}</textarea></td>
-          <td class="cell-narrow">${escapeHtml(record.category)}</td>
-          <td class="cell-narrow">${escapeHtml(record.chartNo)}</td>
-          <td class="cell-name">${escapeHtml(record.patient)}</td>
-          <td class="cell-name">${escapeHtml(record.surgeon)}</td>
-          <td class="cell-diagnosis">${escapeHtml(record.diagnosis)}</td>
-          <td class="cell-surgery">${escapeHtml(record.surgery)}</td>
-          <td class="cell-date">${escapeHtml(record.operationDate)}</td>
-          <td class="cell-date">${escapeHtml(record.submitDate)}</td>
-          <td class="cell-narrow">${escapeHtml(record.needForm)}</td>
-          <td class="cell-narrow">${escapeHtml(record.doctorDone)}</td>
-          <td class="cell-narrow">${escapeHtml(record.orDone)}</td>
-          <td class="cell-narrow">${escapeHtml(record.anesthesiaDone)}</td>
+          <td class="cell-edit cell-review-note" data-col="reviewNote"><textarea data-field="note">${escapeHtml(state.note || "")}</textarea></td>
+          <td class="cell-edit" data-col="appeal"><textarea data-field="appeal">${escapeHtml(state.appeal || "")}</textarea></td>
+          <td class="cell-edit" data-col="reply"><textarea data-field="reply">${escapeHtml(state.reply || "")}</textarea></td>
+          <td class="cell-narrow" data-col="category">${escapeHtml(record.category)}</td>
+          <td class="cell-narrow" data-col="chartNo">${escapeHtml(record.chartNo)}</td>
+          <td class="cell-name" data-col="patient">${escapeHtml(record.patient)}</td>
+          <td class="cell-name" data-col="surgeon">${escapeHtml(record.surgeon)}</td>
+          <td class="cell-diagnosis" data-col="diagnosis">${escapeHtml(record.diagnosis)}</td>
+          <td class="cell-surgery" data-col="surgery">${escapeHtml(record.surgery)}</td>
+          <td class="cell-date" data-col="operationDate">${escapeHtml(record.operationDate)}</td>
+          <td class="cell-date" data-col="submitDate">${escapeHtml(record.submitDate)}</td>
+          <td class="cell-narrow" data-col="needForm">${escapeHtml(record.needForm)}</td>
+          <td class="cell-narrow" data-col="doctorDone">${escapeHtml(record.doctorDone)}</td>
+          <td class="cell-narrow" data-col="orDone">${escapeHtml(record.orDone)}</td>
+          <td class="cell-narrow" data-col="anesthesiaDone">${escapeHtml(record.anesthesiaDone)}</td>
         </tr>
       `;
     }
@@ -873,6 +907,67 @@
         control.addEventListener("change", saveEdit);
         control.addEventListener("input", saveEdit);
       });
+      applyColumnWidths();
+    }
+
+    function setupResizableColumns() {
+      document.querySelectorAll("thead th[data-col]").forEach(th => {
+        th.classList.add("resizable");
+        const handle = document.createElement("span");
+        handle.className = "resize-handle";
+        handle.title = "拖曳調整欄寬";
+        handle.addEventListener("pointerdown", startColumnResize);
+        th.appendChild(handle);
+      });
+    }
+
+    function startColumnResize(event) {
+      event.preventDefault();
+      const th = event.currentTarget.closest("th");
+      const col = th.dataset.col;
+      const startX = event.clientX;
+      const startWidth = th.getBoundingClientRect().width;
+      th.classList.add("resizing");
+
+      const move = moveEvent => {
+        const nextWidth = Math.max(48, Math.round(startWidth + moveEvent.clientX - startX));
+        columnWidths[col] = nextWidth;
+        applyColumnWidths();
+      };
+      const stop = () => {
+        th.classList.remove("resizing");
+        saveColumnWidths();
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", stop);
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", stop);
+    }
+
+    function applyColumnWidths() {
+      Object.entries(columnWidths).forEach(([col, width]) => {
+        document.querySelectorAll(`[data-col="${cssEscape(col)}"]`).forEach(cell => {
+          cell.style.width = `${width}px`;
+          cell.style.minWidth = `${width}px`;
+          cell.style.maxWidth = `${width}px`;
+        });
+      });
+    }
+
+    function loadColumnWidths() {
+      try {
+        return JSON.parse(localStorage.getItem("erReviewColumnWidths") || "{}");
+      } catch {
+        return {};
+      }
+    }
+
+    function saveColumnWidths() {
+      localStorage.setItem("erReviewColumnWidths", JSON.stringify(columnWidths));
+    }
+
+    function cssEscape(value) {
+      return String(value).replace(/["\\]/g, "\\$&");
     }
 
     function saveEdit(event) {
