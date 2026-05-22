@@ -65,6 +65,12 @@
       flex-shrink: 0;
     }
 
+    .source-note {
+      color: var(--muted);
+      font-size: 12px;
+      margin: -4px 0 10px;
+    }
+
     .toolbar {
       display: grid;
       grid-template-columns: minmax(260px, 1.1fr) repeat(4, minmax(120px, .4fr));
@@ -473,6 +479,7 @@
         <a class="cloud-link" href="review.html">開啟回顧紀錄</a>
       </div>
     </div>
+    <div class="source-note">診斷比對依據：總院-術委會-規範-2-00001「奇美醫院急診刀分級參考」頁次 42/43、43/43。</div>
     <div class="toolbar">
       <div>
         <label for="fileInput">Excel 資料檔</label>
@@ -502,7 +509,6 @@
         <button id="exportBtn" disabled>匯出審查 CSV</button>
       </div>
     </div>
-    <div class="note">診斷比對依據：總院-術委會-規範-2-00001「奇美醫院急診刀分級參考」頁次 42/43、43/43。</div>
     <section class="cloud-panel" aria-label="雲端回顧">
       <div>
         <label for="githubToken">GitHub Token</label>
