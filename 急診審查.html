@@ -384,7 +384,7 @@
 
     .cloud-panel {
       display: grid;
-      grid-template-columns: minmax(180px, .8fr) minmax(180px, .8fr) minmax(170px, .7fr) minmax(170px, .7fr) minmax(170px, .7fr);
+      grid-template-columns: minmax(180px, .8fr) minmax(180px, .8fr) minmax(150px, .45fr) minmax(150px, .45fr);
       gap: 10px;
       align-items: end;
       margin-top: 12px;
@@ -410,6 +410,20 @@
 
     .cloud-actions button {
       flex: 1 1 auto;
+    }
+
+    .cloud-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 36px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      color: var(--accent);
+      background: #fff;
+      text-decoration: none;
+      font-weight: 750;
+      padding: 7px 12px;
     }
 
     .cloud-status {
@@ -478,21 +492,14 @@
         <label for="cloudPassword">加密密碼</label>
         <input id="cloudPassword" type="password" autocomplete="off" placeholder="上傳與回顧需相同密碼">
       </div>
-      <div>
-        <label for="cloudReviewList">雲端紀錄</label>
-        <select id="cloudReviewList">
-          <option value="">尚未載入</option>
-        </select>
-      </div>
       <div class="cloud-actions">
         <button id="uploadCloudBtn" class="secondary" disabled>加密上傳</button>
-        <button id="listCloudBtn" class="secondary">查詢紀錄</button>
       </div>
       <div class="cloud-actions">
-        <button id="loadCloudBtn" disabled>載入回顧</button>
+        <a class="cloud-link" href="review.html">開啟回顧紀錄</a>
       </div>
     </section>
-    <div id="cloudStatus" class="cloud-status">雲端位置：chenjica/ER-surgery- 的 reviews/ 目錄。Token 與密碼只在本頁使用，不會寫入匯出檔。</div>
+    <div id="cloudStatus" class="cloud-status">雲端位置：chenjica/ER-surgery- 的 reviews/ 目錄。查詢與載入回顧請開啟「回顧紀錄」。</div>
   </header>
 
   <main>
@@ -636,7 +643,6 @@
     let records = [];
     let reviewState = new Map();
     let currentWorkbook = null;
-    let cloudItems = [];
     let columnWidths = loadColumnWidths();
 
     const fileInput = document.getElementById("fileInput");
@@ -646,10 +652,7 @@
     const exportBtn = document.getElementById("exportBtn");
     const githubToken = document.getElementById("githubToken");
     const cloudPassword = document.getElementById("cloudPassword");
-    const cloudReviewList = document.getElementById("cloudReviewList");
     const uploadCloudBtn = document.getElementById("uploadCloudBtn");
-    const listCloudBtn = document.getElementById("listCloudBtn");
-    const loadCloudBtn = document.getElementById("loadCloudBtn");
     const cloudStatus = document.getElementById("cloudStatus");
     const tbody = document.getElementById("tbody");
     const emptyState = document.getElementById("emptyState");
@@ -661,9 +664,6 @@
     searchInput.addEventListener("input", render);
     exportBtn.addEventListener("click", exportCsv);
     uploadCloudBtn.addEventListener("click", uploadCloudReview);
-    listCloudBtn.addEventListener("click", listCloudReviews);
-    loadCloudBtn.addEventListener("click", loadCloudReview);
-    cloudReviewList.addEventListener("change", () => loadCloudBtn.disabled = !cloudReviewList.value);
 
     renderRules();
     setupResizableColumns();
@@ -1057,64 +1057,10 @@
         const path = `${CLOUD_DIR}/${fileName}`;
         await githubPutFile(path, JSON.stringify(encrypted, null, 2), token, `Upload encrypted review ${fileName}`);
         setCloudStatus(`已加密上傳：${path}`);
-        await listCloudReviews();
       } catch (error) {
         setCloudStatus(`上傳失敗：${error.message}`, "bad");
       } finally {
         uploadCloudBtn.disabled = records.length === 0;
-      }
-    }
-
-    async function listCloudReviews() {
-      const token = githubToken.value.trim();
-      try {
-        setCloudStatus("正在查詢雲端紀錄...");
-        const response = await githubFetch(`${githubApiBase()}/contents/${CLOUD_DIR}`, token || undefined);
-        if (response.status === 404) {
-          cloudItems = [];
-        } else if (!response.ok) {
-          throw new Error(await response.text());
-        } else {
-          const data = await response.json();
-          cloudItems = Array.isArray(data)
-            ? data.filter(item => item.type === "file" && item.name.endsWith(".review.json")).sort((a, b) => b.name.localeCompare(a.name))
-            : [];
-        }
-        cloudReviewList.innerHTML = cloudItems.length
-          ? `<option value="">請選擇紀錄</option>` + cloudItems.map(item => `<option value="${escapeAttr(item.path)}">${escapeHtml(item.name)}</option>`).join("")
-          : `<option value="">沒有雲端紀錄</option>`;
-        loadCloudBtn.disabled = true;
-        setCloudStatus(`查詢完成，共 ${cloudItems.length} 筆雲端紀錄。`);
-      } catch (error) {
-        setCloudStatus(`查詢失敗：${error.message}`, "bad");
-      }
-    }
-
-    async function loadCloudReview() {
-      const token = githubToken.value.trim();
-      const password = cloudPassword.value;
-      const path = cloudReviewList.value;
-      if (!path || !password) {
-        setCloudStatus("請選擇雲端紀錄並輸入加密密碼。", "bad");
-        return;
-      }
-      try {
-        setCloudStatus("正在下載並解密...");
-        const response = await githubFetch(`${githubApiBase()}/contents/${path}`, token || undefined);
-        if (!response.ok) throw new Error(await response.text());
-        const data = await response.json();
-        const encryptedText = base64ToText((data.content || "").replace(/\s+/g, ""));
-        const packageData = await decryptJson(JSON.parse(encryptedText), password);
-        records = (packageData.records || []).map(record => ({ ...record, audit: auditRecord(record) }));
-        reviewState = new Map(Object.entries(packageData.reviewState || {}));
-        currentWorkbook = packageData.sourceFile || null;
-        rebuildCategoryFilter();
-        exportBtn.disabled = records.length === 0;
-        uploadCloudBtn.disabled = records.length === 0;
-        render();
-        setCloudStatus(`已載入回顧：${packageData.sourceFile?.name || path}`);
-      } catch (error) {
-        setCloudStatus(`載入失敗：${error.message}`, "bad");
       }
     }
 
