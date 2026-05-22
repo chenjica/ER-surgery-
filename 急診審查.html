@@ -1,0 +1,967 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>急診手術審查</title>
+  <style>
+    :root {
+      --ink: #17212b;
+      --muted: #64707d;
+      --line: #d7dee6;
+      --panel: #ffffff;
+      --surface: #f4f7fa;
+      --accent: #176b87;
+      --accent-2: #6f5f2f;
+      --danger: #b42318;
+      --danger-bg: #fff1f0;
+      --warn: #9a6700;
+      --warn-bg: #fff7df;
+      --ok: #16794c;
+      --ok-bg: #eaf7f0;
+      --focus: #0f766e;
+      --shadow: 0 1px 3px rgba(23, 33, 43, .08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--surface);
+      font-family: "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    header {
+      background: #ffffff;
+      border-bottom: 1px solid var(--line);
+      padding: 18px 24px 14px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(260px, 1.1fr) repeat(4, minmax(120px, .4fr));
+      gap: 10px;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      margin-bottom: 4px;
+    }
+
+    input, select, textarea, button {
+      font: inherit;
+    }
+
+    input[type="file"], input[type="search"], select, textarea {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 7px 9px;
+    }
+
+    textarea {
+      min-width: 170px;
+      min-height: 54px;
+      resize: vertical;
+    }
+
+    button {
+      min-height: 36px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      padding: 7px 12px;
+      cursor: pointer;
+      font-weight: 650;
+    }
+
+    button.secondary {
+      background: #fff;
+      color: var(--accent);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: .5;
+    }
+
+    main {
+      padding: 16px 24px 28px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(130px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 12px;
+      min-height: 74px;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .rules {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      margin-bottom: 14px;
+    }
+
+    details.rules summary {
+      cursor: pointer;
+      padding: 11px 12px;
+      font-weight: 700;
+      color: #23313f;
+    }
+
+    .rules-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(180px, 1fr));
+      gap: 10px;
+      border-top: 1px solid var(--line);
+      padding: 12px;
+    }
+
+    .rule-block {
+      border-left: 3px solid var(--accent-2);
+      padding-left: 10px;
+      color: #273747;
+      font-size: 13px;
+    }
+
+    .rule-block h2 {
+      margin: 0 0 6px;
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
+    .rule-block ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .table-wrap {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: auto;
+      max-height: calc(100vh - 268px);
+    }
+
+    table {
+      width: 100%;
+      min-width: 1780px;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid #e7ecf1;
+      padding: 8px;
+      vertical-align: top;
+      background: #fff;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: #edf3f7;
+      color: #263645;
+      font-size: 12px;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    tbody tr.flag td {
+      background: var(--danger-bg);
+    }
+
+    tbody tr.warn td {
+      background: var(--warn-bg);
+    }
+
+    .sticky-col {
+      position: sticky;
+      left: 0;
+      z-index: 7;
+      min-width: 74px;
+      box-shadow: 1px 0 0 var(--line);
+    }
+
+    td.sticky-col { font-weight: 700; }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      border-radius: 999px;
+      padding: 2px 9px;
+      font-size: 12px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .status.ok { color: var(--ok); background: var(--ok-bg); }
+    .status.bad { color: var(--danger); background: #ffe4e0; }
+    .status.check { color: var(--warn); background: #fff1bd; }
+
+    .issue-list {
+      margin: 0;
+      padding-left: 18px;
+      min-width: 260px;
+    }
+
+    .issue-list li { margin-bottom: 3px; }
+
+    .match {
+      min-width: 220px;
+      color: #25313d;
+      font-size: 13px;
+    }
+
+    .cell-narrow { min-width: 96px; }
+    .cell-date { min-width: 122px; }
+    .cell-name { min-width: 120px; }
+    .cell-diagnosis { min-width: 260px; }
+    .cell-surgery { min-width: 260px; }
+    .cell-edit { min-width: 190px; }
+
+    .empty {
+      padding: 36px;
+      text-align: center;
+      color: var(--muted);
+      background: #fff;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 1100px) {
+      .toolbar, .summary, .rules-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      header, main { padding-left: 14px; padding-right: 14px; }
+      .table-wrap { max-height: calc(100vh - 380px); }
+    }
+
+    @media (max-width: 680px) {
+      .toolbar, .summary, .rules-grid {
+        grid-template-columns: 1fr;
+      }
+      h1 { font-size: 20px; }
+      .table-wrap { max-height: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>急診手術審查</h1>
+    <div class="toolbar">
+      <div>
+        <label for="fileInput">Excel 資料檔</label>
+        <input id="fileInput" type="file" accept=".xlsx,.xls">
+      </div>
+      <div>
+        <label for="categoryFilter">審核表類別</label>
+        <select id="categoryFilter">
+          <option value="">全部</option>
+        </select>
+      </div>
+      <div>
+        <label for="statusFilter">查核狀態</label>
+        <select id="statusFilter">
+          <option value="">全部</option>
+          <option value="bad">不符合</option>
+          <option value="check">待確認</option>
+          <option value="ok">符合</option>
+        </select>
+      </div>
+      <div>
+        <label for="searchInput">搜尋</label>
+        <input id="searchInput" type="search" placeholder="病歷號、姓名、診斷、手術">
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button id="exportBtn" disabled>匯出審查 CSV</button>
+      </div>
+    </div>
+    <div class="note">診斷比對依據：總院-術委會-規範-2-00001「奇美醫院急診刀分級參考」頁次 42/43、43/43。</div>
+  </header>
+
+  <main>
+    <section class="summary" aria-label="審查摘要">
+      <div class="metric"><span>載入筆數</span><strong id="totalCount">0</strong></div>
+      <div class="metric"><span>符合</span><strong id="okCount">0</strong></div>
+      <div class="metric"><span>不符合</span><strong id="badCount">0</strong></div>
+      <div class="metric"><span>待確認</span><strong id="checkCount">0</strong></div>
+      <div class="metric"><span>目前顯示</span><strong id="visibleCount">0</strong></div>
+    </section>
+
+    <details class="rules">
+      <summary>審查規範與關鍵字</summary>
+      <div class="rules-grid" id="rulesGrid"></div>
+    </details>
+
+    <div id="emptyState" class="empty">尚未載入 Excel 資料</div>
+    <div id="tableWrap" class="table-wrap" hidden>
+      <table>
+        <thead>
+          <tr>
+            <th class="sticky-col">狀態</th>
+            <th>不符合項目</th>
+            <th>規範命中</th>
+            <th>審查結果</th>
+            <th>審查備註</th>
+            <th>主治醫師申訴</th>
+            <th>申訴回覆</th>
+            <th>審核表類別</th>
+            <th>病歷號</th>
+            <th>病人姓名</th>
+            <th>主刀醫師姓名</th>
+            <th>診斷名稱</th>
+            <th>手術名稱</th>
+            <th>預定手術日</th>
+            <th>送單日</th>
+            <th>是否需要填寫</th>
+            <th>醫師是否完成</th>
+            <th>刀房是否完成</th>
+            <th>麻醉審核結果</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    const REQUIRED_YES_FIELDS = ["是否需要填寫", "醫師是否完成", "刀房是否完成", "麻醉審核結果"];
+    const REQUIRED_HEADERS = ["審核表類別", "病歷號", "病人姓名", "主刀醫師姓名", "診斷名稱", "手術名稱", "預定手術日", "送單日"];
+
+    const rules = {
+      "777": {
+        title: "777 手術",
+        source: "頁次 42/43",
+        allowed: [
+          "急救中的病人",
+          "大出血呈現休克現象危及生命",
+          "呼吸道阻塞或破裂且呈現呼吸困難",
+          "冠狀動脈血管疾病需立即開心手術",
+          "危及孕婦或胎兒生命需立即剖腹產",
+          "顱內血塊且造成病情急遽惡化"
+        ],
+        keywords: [
+          ["急救", "CPR", "arrest", "resuscitation"],
+          ["大出血", "出血", "休克", "shock", "bleeding", "hemorrhage", "hemorrhagic", "rupture", "laceration"],
+          ["呼吸道", "airway", "obstruction", "rupture", "dyspnea", "respiratory distress"],
+          ["冠狀動脈", "coronary", "cabg", "open heart", "心臟"],
+          ["胎兒", "孕婦", "fetal distress", "cesarean", "c/s", "剖腹產"],
+          ["顱內", "SDH", "ICH", "IVH", "SAH", "EDH", "hydrocephalus", "brain", "intracranial", "hematoma"]
+        ]
+      },
+      "插刀": {
+        title: "插刀手術",
+        source: "頁次 42/43",
+        allowed: [
+          "急救中的病人",
+          "大出血呈現休克現象危及生命",
+          "呼吸道阻塞或破裂且呈現呼吸困難",
+          "冠狀動脈血管疾病需立即開心手術",
+          "危及孕婦或胎兒生命需立即剖腹產",
+          "顱內血塊且造成病情急遽惡化"
+        ],
+        inherits: "777"
+      },
+      "緊急刀": {
+        title: "緊急刀手術",
+        source: "頁次 42/43、43/43",
+        allowed: [
+          "急救中的病人",
+          "大出血呈現休克現象危及生命",
+          "呼吸道阻塞或破裂且呈現呼吸困難",
+          "冠狀動脈血管疾病需立即開心手術",
+          "危及孕婦或胎兒生命需立即剖腹產",
+          "顱內血塊且造成病情急遽惡化",
+          "Garden type I and II femoral neck fracture",
+          "Garden type I to IV femoral neck fracture in young patient(<60 y/o)",
+          "Multiple fracture",
+          "Intra-articular fracture",
+          "DM foot with sepsis",
+          "急性闌尾炎",
+          "各種器官炎症尚未造成敗血或休克現象"
+        ],
+        keywords: [
+          ["急救", "CPR", "arrest", "resuscitation"],
+          ["大出血", "出血", "休克", "shock", "bleeding", "hemorrhage", "hemorrhagic", "rupture", "laceration"],
+          ["呼吸道", "airway", "obstruction", "rupture", "dyspnea", "respiratory distress"],
+          ["冠狀動脈", "coronary", "cabg", "open heart", "心臟"],
+          ["胎兒", "孕婦", "fetal distress", "cesarean", "c/s", "剖腹產"],
+          ["顱內", "SDH", "ICH", "IVH", "SAH", "EDH", "hydrocephalus", "brain", "intracranial", "hematoma"],
+          ["femoral neck", "Garden", "股骨頸"],
+          ["fracture", "fx", "骨折", "multiple fracture", "intra-articular"],
+          ["DM foot", "diabetic foot", "sepsis", "敗血"],
+          ["appendicitis", "闌尾炎"],
+          ["cholecystitis", "膽囊炎", "inflammation", "abscess", "infection", "peritonitis", "炎", "膿瘍"]
+        ]
+      },
+      "病急": {
+        title: "急刀手術",
+        source: "頁次 43/43",
+        allowed: [
+          "生命徵象穩定但仍需急診手術者",
+          "移除 IABP",
+          "關閉傷口",
+          "緊急清創手術"
+        ],
+        keywords: [
+          ["急診", "urgent", "emergency", "acute"],
+          ["IABP", "intra-aortic balloon"],
+          ["wound closure", "close wound", "closure", "關閉傷口"],
+          ["debridement", "清創", "wound", "laceration", "abscess", "infection", "fracture", "appendicitis", "cholecystitis"]
+        ]
+      }
+    };
+
+    rules["插刀"].keywords = rules["777"].keywords;
+
+    let records = [];
+    let reviewState = new Map();
+
+    const fileInput = document.getElementById("fileInput");
+    const categoryFilter = document.getElementById("categoryFilter");
+    const statusFilter = document.getElementById("statusFilter");
+    const searchInput = document.getElementById("searchInput");
+    const exportBtn = document.getElementById("exportBtn");
+    const tbody = document.getElementById("tbody");
+    const emptyState = document.getElementById("emptyState");
+    const tableWrap = document.getElementById("tableWrap");
+
+    fileInput.addEventListener("change", handleFile);
+    categoryFilter.addEventListener("change", render);
+    statusFilter.addEventListener("change", render);
+    searchInput.addEventListener("input", render);
+    exportBtn.addEventListener("click", exportCsv);
+
+    renderRules();
+
+    function renderRules() {
+      const grid = document.getElementById("rulesGrid");
+      grid.innerHTML = Object.entries(rules).map(([key, rule]) => `
+        <section class="rule-block">
+          <h2>${escapeHtml(key)}：${escapeHtml(rule.title)}</h2>
+          <ul>${rule.allowed.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        </section>
+      `).join("");
+    }
+
+    async function handleFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      try {
+        const rows = await readWorkbookRows(file);
+        const parsed = parseRows(rows);
+        records = parsed.map((row, index) => normalizeRecord(row, index));
+        reviewState = new Map(records.map(record => [record.id, {
+          result: record.audit.status === "ok" ? "合格" : "待確認",
+          note: "",
+          appeal: "",
+          reply: ""
+        }]));
+        rebuildCategoryFilter();
+        exportBtn.disabled = records.length === 0;
+        render();
+      } catch (error) {
+        alert(`Excel 載入失敗：${error.message}`);
+      }
+    }
+
+    async function readWorkbookRows(file) {
+      const errors = [];
+      try {
+        const rows = await parseXlsxFile(file);
+        ensureRequiredHeaders(rows);
+        return rows;
+      } catch (error) {
+        errors.push(`內建讀取器：${error.message}`);
+      }
+
+      try {
+        await loadSheetJs();
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+        ensureRequiredHeaders(rows);
+        return rows;
+      } catch (error) {
+        errors.push(`SheetJS 備援讀取器：${error.message}`);
+      }
+
+      throw new Error(errors.join("；"));
+    }
+
+    async function loadSheetJs() {
+      if (window.XLSX) return;
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+        script.onload = resolve;
+        script.onerror = () => reject(new Error("無法載入線上 XLSX 解析元件，請確認網路可連線"));
+        document.head.appendChild(script);
+      });
+    }
+
+    function parseRows(rows) {
+      const safeRows = rows.map(row => Array.isArray(row) ? row : []);
+      const headerIndex = findHeaderIndex(safeRows);
+      if (headerIndex < 0) {
+        throw new Error("找不到必要欄位：" + REQUIRED_HEADERS.join("、"));
+      }
+      const headers = safeRows[headerIndex].map((value, idx) => value || (idx === 0 ? "序號" : `未命名欄位${idx + 1}`));
+      return safeRows.slice(headerIndex + 1)
+        .filter(row => row.some(value => value !== ""))
+        .map(row => {
+          const record = {};
+          headers.forEach((header, index) => record[header] = row[index] ?? "");
+          return record;
+        });
+    }
+
+    function ensureRequiredHeaders(rows) {
+      const safeRows = rows.map(row => Array.isArray(row) ? row : []);
+      if (findHeaderIndex(safeRows) < 0) {
+        const preview = safeRows.slice(0, 8)
+          .map(row => row.filter(value => value !== "").join(" | "))
+          .filter(Boolean)
+          .join(" / ");
+        throw new Error(`找不到必要欄位。前幾列內容：${preview || "空白"}`);
+      }
+    }
+
+    function findHeaderIndex(rows) {
+      return rows.findIndex(row => {
+        const normalized = row.map(normalizeHeader);
+        return REQUIRED_HEADERS.every(header => normalized.includes(normalizeHeader(header)));
+      });
+    }
+
+    function normalizeHeader(value) {
+      return String(value ?? "").replace(/\s+/g, "").trim();
+    }
+
+    function normalizeRecord(row, index) {
+      const record = {
+        id: String(index + 1),
+        serial: row["序號"] || index + 1,
+        category: String(row["審核表類別"] || "").trim(),
+        chartNo: row["病歷號"] || "",
+        patient: row["病人姓名"] || "",
+        surgeon: row["主刀醫師姓名"] || "",
+        diagnosis: row["診斷名稱"] || "",
+        surgery: row["手術名稱"] || "",
+        operationDate: normalizeDate(row["預定手術日"]),
+        submitDate: normalizeDate(row["送單日"]),
+        needForm: row["是否需要填寫"] || "",
+        doctorDone: row["醫師是否完成"] || "",
+        orDone: row["刀房是否完成"] || "",
+        anesthesiaDone: row["麻醉審核結果"] || ""
+      };
+      record.audit = auditRecord(record);
+      return record;
+    }
+
+    function auditRecord(record) {
+      const issues = [];
+      const dateStatus = sameDate(record.operationDate, record.submitDate);
+      if (!dateStatus.same) issues.push(`預定手術日與送單日不同：${record.operationDate || "空白"} / ${record.submitDate || "空白"}`);
+
+      const fieldMap = {
+        needForm: "是否需要填寫",
+        doctorDone: "醫師是否完成",
+        orDone: "刀房是否完成",
+        anesthesiaDone: "麻醉審核結果"
+      };
+      Object.entries(fieldMap).forEach(([field, label]) => {
+        if (String(record[field]).trim() !== "是") issues.push(`${label}不是「是」：${record[field] || "空白"}`);
+      });
+
+      const categoryKey = mapCategory(record.category);
+      const hasDiagnosis = Boolean(String(record.diagnosis).trim());
+      const match = matchDiagnosis(record.diagnosis, categoryKey);
+      if (!categoryKey) {
+        issues.push(`未知審核表類別：${record.category || "空白"}`);
+      } else if (!hasDiagnosis) {
+        issues.push("診斷名稱空白，無法比對急診刀分級規範");
+      } else if (!match.matched) {
+        issues.push(`診斷名稱未命中「${rules[categoryKey].title}」規範關鍵字`);
+      }
+
+      const status = issues.length ? ((!categoryKey || !hasDiagnosis) ? "check" : "bad") : "ok";
+      return { status, issues, match, categoryKey };
+    }
+
+    function mapCategory(category) {
+      const value = String(category).trim();
+      if (value === "777") return "777";
+      if (value.includes("插")) return "插刀";
+      if (value.includes("緊急")) return "緊急刀";
+      if (value.includes("病急") || value.includes("急刀")) return "病急";
+      return "";
+    }
+
+    function matchDiagnosis(diagnosis, categoryKey) {
+      if (!categoryKey || !rules[categoryKey]) return { matched: false, hits: [] };
+      const text = normalizeText(diagnosis);
+      const hits = [];
+      rules[categoryKey].keywords.forEach((group, index) => {
+        const hit = group.find(keyword => text.includes(normalizeText(keyword)));
+        if (hit) hits.push({ item: rules[categoryKey].allowed[Math.min(index, rules[categoryKey].allowed.length - 1)], keyword: hit });
+      });
+      return { matched: hits.length > 0, hits };
+    }
+
+    function normalizeText(value) {
+      return String(value || "").toLowerCase().replace(/\s+/g, " ").trim();
+    }
+
+    function normalizeDate(value) {
+      if (!value) return "";
+      if (value instanceof Date && !Number.isNaN(value.valueOf())) return value.toISOString().slice(0, 10);
+      if (typeof value === "number") return excelSerialToDate(value);
+      const text = String(value).trim();
+      const match = text.match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+      if (match) return `${match[1]}-${pad2(match[2])}-${pad2(match[3])}`;
+      return text.slice(0, 10);
+    }
+
+    function sameDate(a, b) {
+      return { same: Boolean(a && b && a === b) };
+    }
+
+    function rebuildCategoryFilter() {
+      const categories = [...new Set(records.map(record => record.category).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), "zh-Hant"));
+      categoryFilter.innerHTML = `<option value="">全部</option>` + categories.map(category => `<option value="${escapeAttr(category)}">${escapeHtml(category)}</option>`).join("");
+    }
+
+    function render() {
+      const category = categoryFilter.value;
+      const status = statusFilter.value;
+      const search = normalizeText(searchInput.value);
+      const filtered = records.filter(record => {
+        if (category && record.category !== category) return false;
+        if (status && record.audit.status !== status) return false;
+        if (search) {
+          const haystack = normalizeText([record.chartNo, record.patient, record.surgeon, record.diagnosis, record.surgery].join(" "));
+          if (!haystack.includes(search)) return false;
+        }
+        return true;
+      });
+
+      updateSummary(filtered);
+      emptyState.hidden = records.length > 0;
+      tableWrap.hidden = records.length === 0;
+      tbody.innerHTML = filtered.map(renderRow).join("");
+      attachEditableHandlers();
+    }
+
+    function updateSummary(filtered) {
+      const counts = records.reduce((acc, record) => {
+        acc[record.audit.status] = (acc[record.audit.status] || 0) + 1;
+        return acc;
+      }, {});
+      document.getElementById("totalCount").textContent = records.length;
+      document.getElementById("okCount").textContent = counts.ok || 0;
+      document.getElementById("badCount").textContent = counts.bad || 0;
+      document.getElementById("checkCount").textContent = counts.check || 0;
+      document.getElementById("visibleCount").textContent = filtered.length;
+    }
+
+    function renderRow(record) {
+      const state = reviewState.get(record.id) || {};
+      const statusLabel = record.audit.status === "ok" ? "符合" : record.audit.status === "bad" ? "不符合" : "待確認";
+      const rowClass = record.audit.status === "bad" ? "flag" : record.audit.status === "check" ? "warn" : "";
+      const issues = record.audit.issues.length
+        ? `<ul class="issue-list">${record.audit.issues.map(issue => `<li>${escapeHtml(issue)}</li>`).join("")}</ul>`
+        : "無";
+      const matches = record.audit.match.hits.length
+        ? record.audit.match.hits.map(hit => `<div>${escapeHtml(hit.item)}<br><small>關鍵字：${escapeHtml(hit.keyword)}</small></div>`).join("")
+        : `<span class="status check">未命中</span>`;
+
+      return `
+        <tr class="${rowClass}" data-id="${escapeAttr(record.id)}">
+          <td class="sticky-col"><span class="status ${record.audit.status}">${statusLabel}</span></td>
+          <td>${issues}</td>
+          <td class="match">${matches}</td>
+          <td class="cell-edit">
+            <select data-field="result">
+              ${["合格", "不合格", "待確認"].map(value => `<option value="${value}" ${state.result === value ? "selected" : ""}>${value}</option>`).join("")}
+            </select>
+          </td>
+          <td class="cell-edit"><textarea data-field="note">${escapeHtml(state.note || "")}</textarea></td>
+          <td class="cell-edit"><textarea data-field="appeal">${escapeHtml(state.appeal || "")}</textarea></td>
+          <td class="cell-edit"><textarea data-field="reply">${escapeHtml(state.reply || "")}</textarea></td>
+          <td class="cell-narrow">${escapeHtml(record.category)}</td>
+          <td class="cell-narrow">${escapeHtml(record.chartNo)}</td>
+          <td class="cell-name">${escapeHtml(record.patient)}</td>
+          <td class="cell-name">${escapeHtml(record.surgeon)}</td>
+          <td class="cell-diagnosis">${escapeHtml(record.diagnosis)}</td>
+          <td class="cell-surgery">${escapeHtml(record.surgery)}</td>
+          <td class="cell-date">${escapeHtml(record.operationDate)}</td>
+          <td class="cell-date">${escapeHtml(record.submitDate)}</td>
+          <td class="cell-narrow">${escapeHtml(record.needForm)}</td>
+          <td class="cell-narrow">${escapeHtml(record.doctorDone)}</td>
+          <td class="cell-narrow">${escapeHtml(record.orDone)}</td>
+          <td class="cell-narrow">${escapeHtml(record.anesthesiaDone)}</td>
+        </tr>
+      `;
+    }
+
+    function attachEditableHandlers() {
+      tbody.querySelectorAll("select[data-field], textarea[data-field]").forEach(control => {
+        control.addEventListener("change", saveEdit);
+        control.addEventListener("input", saveEdit);
+      });
+    }
+
+    function saveEdit(event) {
+      const row = event.target.closest("tr");
+      const id = row?.dataset.id;
+      const field = event.target.dataset.field;
+      if (!id || !field) return;
+      const state = reviewState.get(id) || {};
+      state[field] = event.target.value;
+      reviewState.set(id, state);
+    }
+
+    function exportCsv() {
+      const headers = [
+        "系統查核狀態", "不符合項目", "規範命中", "審查結果", "審查備註", "主治醫師申訴", "申訴回覆",
+        "審核表類別", "病歷號", "病人姓名", "主刀醫師姓名", "診斷名稱", "手術名稱", "預定手術日", "送單日",
+        "是否需要填寫", "醫師是否完成", "刀房是否完成", "麻醉審核結果"
+      ];
+      const rows = records.map(record => {
+        const state = reviewState.get(record.id) || {};
+        const statusLabel = record.audit.status === "ok" ? "符合" : record.audit.status === "bad" ? "不符合" : "待確認";
+        return [
+          statusLabel,
+          record.audit.issues.join("；"),
+          record.audit.match.hits.map(hit => `${hit.item}(${hit.keyword})`).join("；"),
+          state.result || "",
+          state.note || "",
+          state.appeal || "",
+          state.reply || "",
+          record.category,
+          record.chartNo,
+          record.patient,
+          record.surgeon,
+          record.diagnosis,
+          record.surgery,
+          record.operationDate,
+          record.submitDate,
+          record.needForm,
+          record.doctorDone,
+          record.orDone,
+          record.anesthesiaDone
+        ];
+      });
+      const csv = [headers, ...rows].map(row => row.map(csvCell).join(",")).join("\r\n");
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "急診手術審查結果.csv";
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    function csvCell(value) {
+      const text = String(value ?? "");
+      return `"${text.replace(/"/g, '""')}"`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value);
+    }
+
+    function pad2(value) {
+      return String(value).padStart(2, "0");
+    }
+
+    async function parseXlsxFile(file) {
+      const entries = await unzipEntries(await file.arrayBuffer());
+      const sharedStrings = parseSharedStrings(entries.get("xl/sharedStrings.xml") || "");
+      const sheetPath = findFirstSheetPath(entries);
+      if (!sheetPath) throw new Error("找不到工作表 XML");
+      return parseSheetXml(entries.get(sheetPath), sharedStrings);
+    }
+
+    async function unzipEntries(arrayBuffer) {
+      const bytes = new Uint8Array(arrayBuffer);
+      const entries = new Map();
+      let eocd = -1;
+      for (let i = bytes.length - 22; i >= 0; i--) {
+        if (readU32(bytes, i) === 0x06054b50) {
+          eocd = i;
+          break;
+        }
+      }
+      if (eocd < 0) throw new Error("不是有效的 XLSX/ZIP 檔案");
+
+      const totalEntries = readU16(bytes, eocd + 10);
+      let offset = readU32(bytes, eocd + 16);
+      for (let i = 0; i < totalEntries; i++) {
+        if (readU32(bytes, offset) !== 0x02014b50) break;
+        const method = readU16(bytes, offset + 10);
+        const compressedSize = readU32(bytes, offset + 20);
+        const fileNameLength = readU16(bytes, offset + 28);
+        const extraLength = readU16(bytes, offset + 30);
+        const commentLength = readU16(bytes, offset + 32);
+        const localOffset = readU32(bytes, offset + 42);
+        const name = decodeUtf8(bytes.slice(offset + 46, offset + 46 + fileNameLength));
+        const localNameLength = readU16(bytes, localOffset + 26);
+        const localExtraLength = readU16(bytes, localOffset + 28);
+        const dataStart = localOffset + 30 + localNameLength + localExtraLength;
+        const compressed = bytes.slice(dataStart, dataStart + compressedSize);
+        const content = method === 0 ? compressed : await inflateRaw(compressed);
+        entries.set(name.replace(/\\/g, "/"), decodeUtf8(content));
+        offset += 46 + fileNameLength + extraLength + commentLength;
+      }
+      return entries;
+    }
+
+    async function inflateRaw(bytes) {
+      if (!("DecompressionStream" in window)) throw new Error("此瀏覽器不支援內建 XLSX 解壓縮");
+      const formats = ["deflate-raw", "deflate"];
+      const errors = [];
+      for (const format of formats) {
+        try {
+          const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream(format));
+          return new Uint8Array(await new Response(stream).arrayBuffer());
+        } catch (error) {
+          errors.push(`${format}: ${error.message}`);
+        }
+      }
+      throw new Error(`內建解壓縮失敗(${errors.join(" / ")})`);
+    }
+
+    function parseSharedStrings(xmlText) {
+      if (!xmlText) return [];
+      const doc = new DOMParser().parseFromString(xmlText, "application/xml");
+      return [...doc.getElementsByTagName("si")].map(si => [...si.getElementsByTagName("t")].map(t => t.textContent || "").join(""));
+    }
+
+    function findFirstSheetPath(entries) {
+      if (entries.has("xl/worksheets/sheet1.xml")) return "xl/worksheets/sheet1.xml";
+      return [...entries.keys()].find(name => name.startsWith("xl/worksheets/") && name.endsWith(".xml"));
+    }
+
+    function parseSheetXml(xmlText, sharedStrings) {
+      const doc = new DOMParser().parseFromString(xmlText, "application/xml");
+      const rows = [];
+      [...doc.getElementsByTagName("c")].forEach(cell => {
+        const ref = cell.getAttribute("r") || "";
+        const rowIndex = Number((ref.match(/\d+/) || [0])[0]) - 1;
+        const colIndex = columnIndex((ref.match(/[A-Z]+/) || ["A"])[0]);
+        const type = cell.getAttribute("t");
+        const valueNode = cell.getElementsByTagName("v")[0];
+        const inlineNode = cell.getElementsByTagName("t")[0];
+        let value = "";
+        if (type === "s") {
+          value = sharedStrings[Number(valueNode?.textContent || 0)] || "";
+        } else if (type === "inlineStr") {
+          value = inlineNode?.textContent || "";
+        } else {
+          const raw = valueNode?.textContent || "";
+          value = raw === "" ? "" : Number.isNaN(Number(raw)) ? raw : Number(raw);
+        }
+        if (!rows[rowIndex]) rows[rowIndex] = [];
+        rows[rowIndex][colIndex] = value;
+      });
+      const height = rows.length;
+      const width = Math.max(...rows.map(row => row ? row.length : 0), 0);
+      return Array.from({ length: height }, (_, rowIndex) =>
+        Array.from({ length: width }, (_, colIndex) => rows[rowIndex]?.[colIndex] ?? "")
+      );
+    }
+
+    function columnIndex(letters) {
+      return letters.split("").reduce((sum, char) => sum * 26 + char.charCodeAt(0) - 64, 0) - 1;
+    }
+
+    function excelSerialToDate(serial) {
+      const utc = Math.round((serial - 25569) * 86400 * 1000);
+      const date = new Date(utc);
+      if (Number.isNaN(date.valueOf())) return String(serial);
+      return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())}`;
+    }
+
+    function readU16(bytes, offset) {
+      return bytes[offset] | (bytes[offset + 1] << 8);
+    }
+
+    function readU32(bytes, offset) {
+      return (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0;
+    }
+
+    function decodeUtf8(bytes) {
+      return new TextDecoder("utf-8").decode(bytes);
+    }
+  </script>
+</body>
+</html>
