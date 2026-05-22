@@ -80,8 +80,8 @@
     }
 
     textarea {
-      min-width: 170px;
-      min-height: 54px;
+      min-width: 120px;
+      min-height: 42px;
       resize: vertical;
     }
 
@@ -273,7 +273,20 @@
     .cell-name { min-width: 120px; }
     .cell-diagnosis { min-width: 260px; }
     .cell-surgery { min-width: 260px; }
-    .cell-edit { min-width: 190px; }
+    .cell-edit { min-width: 170px; }
+    .cell-review-result { min-width: 120px; width: 120px; }
+    .cell-review-note { min-width: 150px; width: 150px; }
+
+    .cell-review-result select {
+      min-width: 96px;
+      width: 100%;
+    }
+
+    .cell-review-note textarea {
+      min-width: 126px;
+      width: 100%;
+      min-height: 42px;
+    }
 
     .empty {
       padding: 36px;
@@ -829,12 +842,12 @@
           <td class="sticky-col"><span class="status ${record.audit.status}">${statusLabel}</span></td>
           <td>${issues}</td>
           <td class="match">${matches}</td>
-          <td class="cell-edit">
+          <td class="cell-edit cell-review-result">
             <select data-field="result">
               ${["合格", "不合格", "待確認"].map(value => `<option value="${value}" ${state.result === value ? "selected" : ""}>${value}</option>`).join("")}
             </select>
           </td>
-          <td class="cell-edit"><textarea data-field="note">${escapeHtml(state.note || "")}</textarea></td>
+          <td class="cell-edit cell-review-note"><textarea data-field="note">${escapeHtml(state.note || "")}</textarea></td>
           <td class="cell-edit"><textarea data-field="appeal">${escapeHtml(state.appeal || "")}</textarea></td>
           <td class="cell-edit"><textarea data-field="reply">${escapeHtml(state.reply || "")}</textarea></td>
           <td class="cell-narrow">${escapeHtml(record.category)}</td>
