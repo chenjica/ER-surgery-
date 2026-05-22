@@ -44,10 +44,25 @@
     }
 
     h1 {
-      margin: 0 0 12px;
+      margin: 0;
       font-size: 22px;
       font-weight: 700;
       letter-spacing: 0;
+    }
+
+    .titlebar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .title-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
     }
 
     .toolbar {
@@ -384,7 +399,7 @@
 
     .cloud-panel {
       display: grid;
-      grid-template-columns: minmax(180px, .8fr) minmax(180px, .8fr) minmax(150px, .45fr) minmax(150px, .45fr);
+      grid-template-columns: minmax(180px, .8fr) minmax(180px, .8fr) minmax(150px, .35fr);
       gap: 10px;
       align-items: end;
       margin-top: 12px;
@@ -452,7 +467,12 @@
 </head>
 <body>
   <header>
-    <h1>急診手術審查</h1>
+    <div class="titlebar">
+      <h1>急診手術審查</h1>
+      <div class="title-actions">
+        <a class="cloud-link" href="review.html">開啟回顧紀錄</a>
+      </div>
+    </div>
     <div class="toolbar">
       <div>
         <label for="fileInput">Excel 資料檔</label>
@@ -494,9 +514,6 @@
       </div>
       <div class="cloud-actions">
         <button id="uploadCloudBtn" class="secondary" disabled>加密上傳</button>
-      </div>
-      <div class="cloud-actions">
-        <a class="cloud-link" href="review.html">開啟回顧紀錄</a>
       </div>
     </section>
     <div id="cloudStatus" class="cloud-status">雲端位置：chenjica/ER-surgery- 的 reviews/ 目錄。查詢與載入回顧請開啟「回顧紀錄」。</div>
