@@ -269,12 +269,28 @@
     .sticky-col {
       position: sticky;
       left: 0;
-      z-index: 7;
       min-width: 74px;
       box-shadow: 1px 0 0 var(--line);
     }
 
-    td.sticky-col { font-weight: 700; }
+    th.sticky-col {
+      z-index: 18;
+      background: #edf3f7;
+    }
+
+    td.sticky-col {
+      z-index: 10;
+      font-weight: 700;
+      background: inherit;
+    }
+
+    tbody tr.flag td.sticky-col {
+      background: var(--danger-bg);
+    }
+
+    tbody tr.warn td.sticky-col {
+      background: var(--warn-bg);
+    }
 
     .status {
       display: inline-flex;
