@@ -212,6 +212,10 @@
       word-break: break-word;
     }
 
+    td {
+      overflow: hidden;
+    }
+
     th {
       position: sticky;
       top: 0;
@@ -292,6 +296,8 @@
       padding-left: 18px;
       min-width: 0;
       max-width: 100%;
+      width: 100%;
+      white-space: normal;
       overflow-wrap: anywhere;
       word-break: break-word;
     }
@@ -299,6 +305,12 @@
     .issue-list li {
       margin-bottom: 3px;
       max-width: 100%;
+      white-space: normal;
+    }
+
+    td[data-col="issues"] {
+      contain: paint;
+      overflow: hidden;
     }
 
     .match {
