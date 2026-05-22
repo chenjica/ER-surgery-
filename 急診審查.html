@@ -285,8 +285,45 @@
       margin-top: 8px;
     }
 
+    .cloud-panel {
+      display: grid;
+      grid-template-columns: minmax(180px, .8fr) minmax(180px, .8fr) minmax(170px, .7fr) minmax(170px, .7fr) minmax(170px, .7fr);
+      gap: 10px;
+      align-items: end;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .cloud-panel input[type="password"], .cloud-panel input[type="text"] {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 7px 9px;
+    }
+
+    .cloud-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .cloud-actions button {
+      flex: 1 1 auto;
+    }
+
+    .cloud-status {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 8px;
+      min-height: 18px;
+    }
+
     @media (max-width: 1100px) {
-      .toolbar, .summary, .rules-grid {
+      .toolbar, .summary, .rules-grid, .cloud-panel {
         grid-template-columns: 1fr 1fr;
       }
       header, main { padding-left: 14px; padding-right: 14px; }
@@ -294,7 +331,7 @@
     }
 
     @media (max-width: 680px) {
-      .toolbar, .summary, .rules-grid {
+      .toolbar, .summary, .rules-grid, .cloud-panel {
         grid-template-columns: 1fr;
       }
       h1 { font-size: 20px; }
@@ -335,6 +372,30 @@
       </div>
     </div>
     <div class="note">診斷比對依據：總院-術委會-規範-2-00001「奇美醫院急診刀分級參考」頁次 42/43、43/43。</div>
+    <section class="cloud-panel" aria-label="雲端回顧">
+      <div>
+        <label for="githubToken">GitHub Token</label>
+        <input id="githubToken" type="password" autocomplete="off" placeholder="需 repo contents 權限">
+      </div>
+      <div>
+        <label for="cloudPassword">加密密碼</label>
+        <input id="cloudPassword" type="password" autocomplete="off" placeholder="上傳與回顧需相同密碼">
+      </div>
+      <div>
+        <label for="cloudReviewList">雲端紀錄</label>
+        <select id="cloudReviewList">
+          <option value="">尚未載入</option>
+        </select>
+      </div>
+      <div class="cloud-actions">
+        <button id="uploadCloudBtn" class="secondary" disabled>加密上傳</button>
+        <button id="listCloudBtn" class="secondary">查詢紀錄</button>
+      </div>
+      <div class="cloud-actions">
+        <button id="loadCloudBtn" disabled>載入回顧</button>
+      </div>
+    </section>
+    <div id="cloudStatus" class="cloud-status">雲端位置：chenjica/ER-surgery- 的 reviews/ 目錄。Token 與密碼只在本頁使用，不會寫入匯出檔。</div>
   </header>
 
   <main>
@@ -385,6 +446,9 @@
   <script>
     const REQUIRED_YES_FIELDS = ["是否需要填寫", "醫師是否完成", "刀房是否完成", "麻醉審核結果"];
     const REQUIRED_HEADERS = ["審核表類別", "病歷號", "病人姓名", "主刀醫師姓名", "診斷名稱", "手術名稱", "預定手術日", "送單日"];
+    const CLOUD_OWNER = "chenjica";
+    const CLOUD_REPO = "ER-surgery-";
+    const CLOUD_DIR = "reviews";
 
     const rules = {
       "777": {
@@ -474,12 +538,21 @@
 
     let records = [];
     let reviewState = new Map();
+    let currentWorkbook = null;
+    let cloudItems = [];
 
     const fileInput = document.getElementById("fileInput");
     const categoryFilter = document.getElementById("categoryFilter");
     const statusFilter = document.getElementById("statusFilter");
     const searchInput = document.getElementById("searchInput");
     const exportBtn = document.getElementById("exportBtn");
+    const githubToken = document.getElementById("githubToken");
+    const cloudPassword = document.getElementById("cloudPassword");
+    const cloudReviewList = document.getElementById("cloudReviewList");
+    const uploadCloudBtn = document.getElementById("uploadCloudBtn");
+    const listCloudBtn = document.getElementById("listCloudBtn");
+    const loadCloudBtn = document.getElementById("loadCloudBtn");
+    const cloudStatus = document.getElementById("cloudStatus");
     const tbody = document.getElementById("tbody");
     const emptyState = document.getElementById("emptyState");
     const tableWrap = document.getElementById("tableWrap");
@@ -489,6 +562,10 @@
     statusFilter.addEventListener("change", render);
     searchInput.addEventListener("input", render);
     exportBtn.addEventListener("click", exportCsv);
+    uploadCloudBtn.addEventListener("click", uploadCloudReview);
+    listCloudBtn.addEventListener("click", listCloudReviews);
+    loadCloudBtn.addEventListener("click", loadCloudReview);
+    cloudReviewList.addEventListener("change", () => loadCloudBtn.disabled = !cloudReviewList.value);
 
     renderRules();
 
@@ -506,6 +583,12 @@
       const file = event.target.files[0];
       if (!file) return;
       try {
+        currentWorkbook = {
+          name: file.name,
+          type: file.type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          size: file.size,
+          dataBase64: arrayBufferToBase64(await file.arrayBuffer())
+        };
         const rows = await readWorkbookRows(file);
         const parsed = parseRows(rows);
         records = parsed.map((row, index) => normalizeRecord(row, index));
@@ -517,6 +600,7 @@
         }]));
         rebuildCategoryFilter();
         exportBtn.disabled = records.length === 0;
+        uploadCloudBtn.disabled = records.length === 0;
         render();
       } catch (error) {
         alert(`Excel 載入失敗：${error.message}`);
@@ -781,6 +865,98 @@
       reviewState.set(id, state);
     }
 
+    async function uploadCloudReview() {
+      if (!records.length || !currentWorkbook) {
+        setCloudStatus("請先選擇並載入 Excel 檔案。", "bad");
+        return;
+      }
+      const token = githubToken.value.trim();
+      const password = cloudPassword.value;
+      if (!token || !password) {
+        setCloudStatus("請輸入 GitHub Token 與加密密碼。", "bad");
+        return;
+      }
+      try {
+        setCloudStatus("正在加密並上傳...");
+        uploadCloudBtn.disabled = true;
+        const packageData = {
+          version: 1,
+          uploadedAt: new Date().toISOString(),
+          sourceFile: {
+            name: currentWorkbook.name,
+            type: currentWorkbook.type,
+            size: currentWorkbook.size,
+            dataBase64: currentWorkbook.dataBase64
+          },
+          records,
+          reviewState: Object.fromEntries(reviewState.entries())
+        };
+        const encrypted = await encryptJson(packageData, password);
+        const fileName = `${timestampForPath()}_${sanitizeFileName(currentWorkbook.name)}.review.json`;
+        const path = `${CLOUD_DIR}/${fileName}`;
+        await githubPutFile(path, JSON.stringify(encrypted, null, 2), token, `Upload encrypted review ${fileName}`);
+        setCloudStatus(`已加密上傳：${path}`);
+        await listCloudReviews();
+      } catch (error) {
+        setCloudStatus(`上傳失敗：${error.message}`, "bad");
+      } finally {
+        uploadCloudBtn.disabled = records.length === 0;
+      }
+    }
+
+    async function listCloudReviews() {
+      const token = githubToken.value.trim();
+      try {
+        setCloudStatus("正在查詢雲端紀錄...");
+        const response = await githubFetch(`${githubApiBase()}/contents/${CLOUD_DIR}`, token || undefined);
+        if (response.status === 404) {
+          cloudItems = [];
+        } else if (!response.ok) {
+          throw new Error(await response.text());
+        } else {
+          const data = await response.json();
+          cloudItems = Array.isArray(data)
+            ? data.filter(item => item.type === "file" && item.name.endsWith(".review.json")).sort((a, b) => b.name.localeCompare(a.name))
+            : [];
+        }
+        cloudReviewList.innerHTML = cloudItems.length
+          ? `<option value="">請選擇紀錄</option>` + cloudItems.map(item => `<option value="${escapeAttr(item.path)}">${escapeHtml(item.name)}</option>`).join("")
+          : `<option value="">沒有雲端紀錄</option>`;
+        loadCloudBtn.disabled = true;
+        setCloudStatus(`查詢完成，共 ${cloudItems.length} 筆雲端紀錄。`);
+      } catch (error) {
+        setCloudStatus(`查詢失敗：${error.message}`, "bad");
+      }
+    }
+
+    async function loadCloudReview() {
+      const token = githubToken.value.trim();
+      const password = cloudPassword.value;
+      const path = cloudReviewList.value;
+      if (!path || !password) {
+        setCloudStatus("請選擇雲端紀錄並輸入加密密碼。", "bad");
+        return;
+      }
+      try {
+        setCloudStatus("正在下載並解密...");
+        const response = await githubFetch(`${githubApiBase()}/contents/${path}`, token || undefined);
+        if (!response.ok) throw new Error(await response.text());
+        const data = await response.json();
+        const encryptedText = base64ToText((data.content || "").replace(/\s+/g, ""));
+        const packageData = await decryptJson(JSON.parse(encryptedText), password);
+        records = (packageData.records || []).map(record => ({ ...record, audit: auditRecord(record) }));
+        reviewState = new Map(Object.entries(packageData.reviewState || {}));
+        currentWorkbook = packageData.sourceFile || null;
+        rebuildCategoryFilter();
+        exportBtn.disabled = records.length === 0;
+        uploadCloudBtn.disabled = records.length === 0;
+        render();
+        setCloudStatus(`已載入回顧：${packageData.sourceFile?.name || path}`);
+      } catch (error) {
+        setCloudStatus(`載入失敗：${error.message}`, "bad");
+      }
+    }
+
     function exportCsv() {
       const headers = [
         "系統查核狀態", "不符合項目", "規範命中", "審查結果", "審查備註", "主治醫師申訴", "申訴回覆",
@@ -841,6 +1017,113 @@
 
     function pad2(value) {
       return String(value).padStart(2, "0");
+    }
+
+    async function encryptJson(data, password) {
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const key = await deriveCloudKey(password, salt);
+      const encoded = new TextEncoder().encode(JSON.stringify(data));
+      const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
+      return {
+        version: 1,
+        algorithm: "AES-GCM",
+        kdf: "PBKDF2-SHA256",
+        iterations: 250000,
+        salt: arrayBufferToBase64(salt),
+        iv: arrayBufferToBase64(iv),
+        data: arrayBufferToBase64(encrypted)
+      };
+    }
+
+    async function decryptJson(payload, password) {
+      const salt = base64ToBytes(payload.salt);
+      const iv = base64ToBytes(payload.iv);
+      const encrypted = base64ToBytes(payload.data);
+      const key = await deriveCloudKey(password, salt);
+      const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, encrypted);
+      return JSON.parse(new TextDecoder().decode(decrypted));
+    }
+
+    async function deriveCloudKey(password, salt) {
+      const baseKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
+      return crypto.subtle.deriveKey(
+        { name: "PBKDF2", salt, iterations: 250000, hash: "SHA-256" },
+        baseKey,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    }
+
+    async function githubPutFile(path, text, token, message) {
+      const response = await githubFetch(`${githubApiBase()}/contents/${encodePath(path)}`, token, {
+        method: "PUT",
+        body: JSON.stringify({
+          message,
+          content: textToBase64(text),
+          branch: "gh-pages"
+        })
+      });
+      if (!response.ok) throw new Error(await response.text());
+      return response.json();
+    }
+
+    function githubFetch(url, token, options = {}) {
+      const headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        ...(options.headers || {})
+      };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      return fetch(url, { ...options, headers });
+    }
+
+    function githubApiBase() {
+      return `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}`;
+    }
+
+    function encodePath(path) {
+      return path.split("/").map(encodeURIComponent).join("/");
+    }
+
+    function timestampForPath() {
+      const date = new Date();
+      return date.toISOString().replace(/[:.]/g, "-");
+    }
+
+    function sanitizeFileName(name) {
+      return String(name || "review").replace(/[\\/:*?"<>|#%&{}$!'@+=`]/g, "_").slice(0, 80);
+    }
+
+    function setCloudStatus(message, level = "") {
+      cloudStatus.textContent = message;
+      cloudStatus.style.color = level === "bad" ? "var(--danger)" : "var(--muted)";
+    }
+
+    function arrayBufferToBase64(buffer) {
+      const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+      let binary = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+      }
+      return btoa(binary);
+    }
+
+    function base64ToBytes(base64) {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes;
+    }
+
+    function textToBase64(text) {
+      return arrayBufferToBase64(new TextEncoder().encode(text));
+    }
+
+    function base64ToText(base64) {
+      return new TextDecoder().decode(base64ToBytes(base64));
     }
 
     async function parseXlsxFile(file) {
