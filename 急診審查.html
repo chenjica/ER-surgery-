@@ -515,11 +515,11 @@
         <input id="githubToken" type="password" autocomplete="off" placeholder="需 repo contents 權限">
       </div>
       <div>
-        <label for="cloudPassword">加密密碼</label>
-        <input id="cloudPassword" type="password" autocomplete="off" placeholder="上傳與回顧需相同密碼">
+        <label for="cloudPassword">讀取密碼</label>
+        <input id="cloudPassword" type="password" autocomplete="off" placeholder="自訂回顧讀取密碼">
       </div>
       <div class="cloud-actions">
-        <button id="uploadCloudBtn" class="secondary" disabled>加密上傳</button>
+        <button id="uploadCloudBtn" class="secondary" disabled>密碼上傳</button>
       </div>
     </section>
     <div id="cloudStatus" class="cloud-status">雲端位置：chenjica/ER-surgery- 的 reviews/ 目錄。查詢與載入回顧請開啟「回顧紀錄」。</div>
@@ -1057,14 +1057,14 @@
       const token = githubToken.value.trim();
       const password = cloudPassword.value;
       if (!token || !password) {
-        setCloudStatus("請輸入 GitHub Token 與加密密碼。", "bad");
+        setCloudStatus("請輸入 GitHub Token 與讀取密碼。", "bad");
         return;
       }
       try {
-        setCloudStatus("正在加密並上傳...");
+        setCloudStatus("正在建立密碼驗證並上傳...");
         uploadCloudBtn.disabled = true;
         const packageData = {
-          version: 1,
+          version: 2,
           uploadedAt: new Date().toISOString(),
           sourceFile: {
             name: currentWorkbook.name,
@@ -1075,11 +1075,11 @@
           records,
           reviewState: Object.fromEntries(reviewState.entries())
         };
-        const encrypted = await encryptJson(packageData, password);
+        const gatedReview = await createPasswordGatedReview(packageData, password);
         const fileName = `${timestampForPath()}_${sanitizeFileName(currentWorkbook.name)}.review.json`;
         const path = `${CLOUD_DIR}/${fileName}`;
-        await githubPutFile(path, JSON.stringify(encrypted, null, 2), token, `Upload encrypted review ${fileName}`);
-        setCloudStatus(`已加密上傳：${path}`);
+        await githubPutFile(path, JSON.stringify(gatedReview, null, 2), token, `Upload password-gated review ${fileName}`);
+        setCloudStatus(`已上傳：${path}。回顧讀取需輸入本次設定的密碼。`);
       } catch (error) {
         setCloudStatus(`上傳失敗：${error.message}`, "bad");
       } finally {
@@ -1149,41 +1149,34 @@
       return String(value).padStart(2, "0");
     }
 
-    async function encryptJson(data, password) {
+    async function createPasswordGatedReview(data, password) {
       const salt = crypto.getRandomValues(new Uint8Array(16));
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const key = await deriveCloudKey(password, salt);
-      const encoded = new TextEncoder().encode(JSON.stringify(data));
-      const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
+      const hash = await hashCloudPassword(password, salt);
       return {
-        version: 1,
-        algorithm: "AES-GCM",
-        kdf: "PBKDF2-SHA256",
-        iterations: 250000,
-        salt: arrayBufferToBase64(salt),
-        iv: arrayBufferToBase64(iv),
-        data: arrayBufferToBase64(encrypted)
+        version: 2,
+        access: "password-gated",
+        warning: "Payload is not encrypted. Password is verified by hash before this app displays the review.",
+        auth: {
+          kdf: "PBKDF2-SHA256",
+          iterations: 250000,
+          salt: arrayBufferToBase64(salt),
+          hash
+        },
+        payload: data
       };
     }
 
-    async function decryptJson(payload, password) {
-      const salt = base64ToBytes(payload.salt);
-      const iv = base64ToBytes(payload.iv);
-      const encrypted = base64ToBytes(payload.data);
-      const key = await deriveCloudKey(password, salt);
-      const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, encrypted);
-      return JSON.parse(new TextDecoder().decode(decrypted));
-    }
-
-    async function deriveCloudKey(password, salt) {
+    async function hashCloudPassword(password, salt) {
       const baseKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
-      return crypto.subtle.deriveKey(
+      const key = await crypto.subtle.deriveKey(
         { name: "PBKDF2", salt, iterations: 250000, hash: "SHA-256" },
         baseKey,
-        { name: "AES-GCM", length: 256 },
-        false,
-        ["encrypt", "decrypt"]
+        { name: "HMAC", hash: "SHA-256", length: 256 },
+        true,
+        ["sign"]
       );
+      const raw = await crypto.subtle.exportKey("raw", key);
+      return arrayBufferToBase64(raw);
     }
 
     async function githubPutFile(path, text, token, message) {
