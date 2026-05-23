@@ -53,7 +53,7 @@
     .titlebar {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-start;
       gap: 12px;
       margin-bottom: 6px;
     }
@@ -62,7 +62,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      flex-shrink: 0;
+      flex: 1 1 auto;
     }
 
     .source-note {
@@ -70,6 +70,11 @@
       font-size: 12px;
       margin: 0;
       white-space: nowrap;
+      flex: 0 1 auto;
+    }
+
+    .title-actions .cloud-link {
+      margin-left: auto;
     }
 
     .toolbar {
