@@ -405,7 +405,7 @@
 
     .cloud-panel {
       display: grid;
-      grid-template-columns: minmax(180px, .8fr) minmax(180px, .8fr) minmax(150px, .35fr);
+      grid-template-columns: minmax(220px, .8fr) minmax(150px, .35fr) minmax(180px, .45fr);
       gap: 10px;
       align-items: end;
       margin-top: 12px;
@@ -511,18 +511,17 @@
     </div>
     <section class="cloud-panel" aria-label="雲端回顧">
       <div>
-        <label for="githubToken">GitHub Token</label>
-        <input id="githubToken" type="password" autocomplete="off" placeholder="需 repo contents 權限">
-      </div>
-      <div>
         <label for="cloudPassword">讀取密碼</label>
         <input id="cloudPassword" type="password" autocomplete="off" placeholder="自訂回顧讀取密碼">
       </div>
       <div class="cloud-actions">
-        <button id="uploadCloudBtn" class="secondary" disabled>密碼上傳</button>
+        <button id="uploadCloudBtn" class="secondary" disabled>產生回顧檔</button>
+      </div>
+      <div class="cloud-actions">
+        <a class="cloud-link" href="https://github.com/chenjica/ER-surgery-/upload/gh-pages/reviews" target="_blank" rel="noopener">上傳到 GitHub</a>
       </div>
     </section>
-    <div id="cloudStatus" class="cloud-status">雲端位置：chenjica/ER-surgery- 的 reviews/ 目錄。查詢與載入回顧請開啟「回顧紀錄」。</div>
+    <div id="cloudStatus" class="cloud-status">先產生 .review.json，再用「上傳到 GitHub」放到 reviews/ 目錄；查詢與載入回顧請開啟「回顧紀錄」。</div>
   </header>
 
   <main>
@@ -673,7 +672,6 @@
     const statusFilter = document.getElementById("statusFilter");
     const searchInput = document.getElementById("searchInput");
     const exportBtn = document.getElementById("exportBtn");
-    const githubToken = document.getElementById("githubToken");
     const cloudPassword = document.getElementById("cloudPassword");
     const uploadCloudBtn = document.getElementById("uploadCloudBtn");
     const cloudStatus = document.getElementById("cloudStatus");
@@ -1054,14 +1052,13 @@
         setCloudStatus("請先選擇並載入 Excel 檔案。", "bad");
         return;
       }
-      const token = githubToken.value.trim();
       const password = cloudPassword.value;
-      if (!token || !password) {
-        setCloudStatus("請輸入 GitHub Token 與讀取密碼。", "bad");
+      if (!password) {
+        setCloudStatus("請輸入讀取密碼。", "bad");
         return;
       }
       try {
-        setCloudStatus("正在建立密碼驗證並上傳...");
+        setCloudStatus("正在產生回顧檔...");
         uploadCloudBtn.disabled = true;
         const packageData = {
           version: 2,
@@ -1077,11 +1074,10 @@
         };
         const gatedReview = await createPasswordGatedReview(packageData, password);
         const fileName = `${timestampForPath()}_${sanitizeFileName(currentWorkbook.name)}.review.json`;
-        const path = `${CLOUD_DIR}/${fileName}`;
-        await githubPutFile(path, JSON.stringify(gatedReview, null, 2), token, `Upload password-gated review ${fileName}`);
-        setCloudStatus(`已上傳：${path}。回顧讀取需輸入本次設定的密碼。`);
+        downloadTextFile(fileName, JSON.stringify(gatedReview, null, 2), "application/json;charset=utf-8");
+        setCloudStatus(`已產生 ${fileName}。請點「上傳到 GitHub」將檔案放到 reviews/ 目錄。`);
       } catch (error) {
-        setCloudStatus(`上傳失敗：${error.message}`, "bad");
+        setCloudStatus(`產生失敗：${error.message}`, "bad");
       } finally {
         uploadCloudBtn.disabled = records.length === 0;
       }
@@ -1179,37 +1175,6 @@
       return arrayBufferToBase64(raw);
     }
 
-    async function githubPutFile(path, text, token, message) {
-      const response = await githubFetch(`${githubApiBase()}/contents/${encodePath(path)}`, token, {
-        method: "PUT",
-        body: JSON.stringify({
-          message,
-          content: textToBase64(text),
-          branch: "gh-pages"
-        })
-      });
-      if (!response.ok) throw new Error(await response.text());
-      return response.json();
-    }
-
-    function githubFetch(url, token, options = {}) {
-      const headers = {
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        ...(options.headers || {})
-      };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      return fetch(url, { ...options, headers });
-    }
-
-    function githubApiBase() {
-      return `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}`;
-    }
-
-    function encodePath(path) {
-      return path.split("/").map(encodeURIComponent).join("/");
-    }
-
     function timestampForPath() {
       const date = new Date();
       return date.toISOString().replace(/[:.]/g, "-");
@@ -1247,6 +1212,15 @@
 
     function base64ToText(base64) {
       return new TextDecoder().decode(base64ToBytes(base64));
+    }
+
+    function downloadTextFile(fileName, text, type) {
+      const blob = new Blob([text], { type });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      link.click();
+      URL.revokeObjectURL(link.href);
     }
 
     async function parseXlsxFile(file) {
