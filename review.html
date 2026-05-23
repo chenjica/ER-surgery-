@@ -314,8 +314,8 @@
         <input id="githubToken" type="password" autocomplete="off" placeholder="公開 repo 可留空；私有或高頻查詢請填 token">
       </div>
       <div>
-        <label for="cloudPassword">加密密碼</label>
-        <input id="cloudPassword" type="password" autocomplete="off" placeholder="輸入上傳時使用的密碼">
+        <label for="cloudPassword">讀取密碼</label>
+        <input id="cloudPassword" type="password" autocomplete="off" placeholder="輸入上傳者設定的密碼">
       </div>
       <div>
         <label>&nbsp;</label>
@@ -403,23 +403,23 @@
 
     async function loadCloudReview(path) {
       if (!cloudPassword.value) {
-        setStatus("請先輸入加密密碼。", "bad");
+        setStatus("請先輸入讀取密碼。", "bad");
         return;
       }
       try {
         selectedPath = path;
         renderRecordList();
-        detail.innerHTML = `<div class="empty">正在下載並解密...</div>`;
-        setStatus("正在下載並解密...");
+        detail.innerHTML = `<div class="empty">正在下載並驗證密碼...</div>`;
+        setStatus("正在下載並驗證密碼...");
         const response = await githubFetch(`${githubApiBase()}/contents/${encodePath(path)}`, githubToken.value.trim() || undefined);
         if (!response.ok) throw new Error(await response.text());
         const data = await response.json();
-        const encryptedText = base64ToText((data.content || "").replace(/\s+/g, ""));
-        const packageData = await decryptJson(JSON.parse(encryptedText), cloudPassword.value);
+        const reviewPackage = JSON.parse(base64ToText((data.content || "").replace(/\s+/g, "")));
+        const packageData = await openPasswordGatedReview(reviewPackage, cloudPassword.value);
         renderDetail(packageData, path);
         setStatus(`已載入：${packageData.sourceFile?.name || path}`);
       } catch (error) {
-        detail.innerHTML = `<div class="empty">載入失敗，請確認密碼與 Token。</div>`;
+        detail.innerHTML = `<div class="empty">載入失敗，請確認讀取密碼與 Token。</div>`;
         setStatus(`載入失敗：${error.message}`, "bad");
       }
     }
@@ -493,24 +493,47 @@
       `;
     }
 
-    async function decryptJson(payload, password) {
-      const salt = base64ToBytes(payload.salt);
-      const iv = base64ToBytes(payload.iv);
-      const encrypted = base64ToBytes(payload.data);
-      const key = await deriveCloudKey(password, salt);
-      const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, encrypted);
-      return JSON.parse(new TextDecoder().decode(decrypted));
+    async function openPasswordGatedReview(reviewPackage, password) {
+      if (reviewPackage.version !== 2 || reviewPackage.access !== "password-gated") {
+        throw new Error("此紀錄不是新版密碼讀取格式，請重新上傳。");
+      }
+      const salt = base64ToBytes(reviewPackage.auth?.salt || "");
+      const expected = reviewPackage.auth?.hash || "";
+      const actual = await hashCloudPassword(password, salt);
+      if (!constantTimeEqual(actual, expected)) {
+        throw new Error("讀取密碼不正確。");
+      }
+      return reviewPackage.payload;
     }
 
-    async function deriveCloudKey(password, salt) {
+    async function hashCloudPassword(password, salt) {
       const baseKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
-      return crypto.subtle.deriveKey(
+      const key = await crypto.subtle.deriveKey(
         { name: "PBKDF2", salt, iterations: 250000, hash: "SHA-256" },
         baseKey,
-        { name: "AES-GCM", length: 256 },
-        false,
-        ["decrypt"]
+        { name: "HMAC", hash: "SHA-256", length: 256 },
+        true,
+        ["sign"]
       );
+      const raw = await crypto.subtle.exportKey("raw", key);
+      return arrayBufferToBase64(raw);
+    }
+
+    function constantTimeEqual(a, b) {
+      if (a.length !== b.length) return false;
+      let diff = 0;
+      for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+      return diff === 0;
+    }
+
+    function arrayBufferToBase64(buffer) {
+      const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+      let binary = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+      }
+      return btoa(binary);
     }
 
     function githubFetch(url, token, options = {}) {
