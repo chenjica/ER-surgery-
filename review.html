@@ -64,7 +64,7 @@
 
     .toolbar {
       display: grid;
-      grid-template-columns: minmax(220px, .8fr) minmax(220px, .8fr) minmax(120px, .35fr);
+      grid-template-columns: minmax(220px, .8fr) minmax(120px, .35fr);
       gap: 10px;
       align-items: end;
     }
@@ -310,10 +310,6 @@
     </div>
     <div class="toolbar">
       <div>
-        <label for="githubToken">GitHub Token</label>
-        <input id="githubToken" type="password" autocomplete="off" placeholder="公開 repo 可留空；私有或高頻查詢請填 token">
-      </div>
-      <div>
         <label for="cloudPassword">讀取密碼</label>
         <input id="cloudPassword" type="password" autocomplete="off" placeholder="輸入上傳者設定的密碼">
       </div>
@@ -349,7 +345,6 @@
     let cloudItems = [];
     let selectedPath = "";
 
-    const githubToken = document.getElementById("githubToken");
     const cloudPassword = document.getElementById("cloudPassword");
     const refreshBtn = document.getElementById("refreshBtn");
     const recordList = document.getElementById("recordList");
@@ -364,7 +359,7 @@
       try {
         setStatus("正在查詢雲端紀錄...");
         refreshBtn.disabled = true;
-        const response = await githubFetch(`${githubApiBase()}/contents/${CLOUD_DIR}`, githubToken.value.trim() || undefined);
+        const response = await githubFetch(`${githubApiBase()}/contents/${CLOUD_DIR}`);
         if (response.status === 404) {
           cloudItems = [];
         } else if (!response.ok) {
@@ -411,7 +406,7 @@
         renderRecordList();
         detail.innerHTML = `<div class="empty">正在下載並驗證密碼...</div>`;
         setStatus("正在下載並驗證密碼...");
-        const response = await githubFetch(`${githubApiBase()}/contents/${encodePath(path)}`, githubToken.value.trim() || undefined);
+        const response = await githubFetch(`${githubApiBase()}/contents/${encodePath(path)}`);
         if (!response.ok) throw new Error(await response.text());
         const data = await response.json();
         const reviewPackage = JSON.parse(base64ToText((data.content || "").replace(/\s+/g, "")));
@@ -419,7 +414,7 @@
         renderDetail(packageData, path);
         setStatus(`已載入：${packageData.sourceFile?.name || path}`);
       } catch (error) {
-        detail.innerHTML = `<div class="empty">載入失敗，請確認讀取密碼與 Token。</div>`;
+        detail.innerHTML = `<div class="empty">載入失敗，請確認讀取密碼。</div>`;
         setStatus(`載入失敗：${error.message}`, "bad");
       }
     }
@@ -536,13 +531,12 @@
       return btoa(binary);
     }
 
-    function githubFetch(url, token, options = {}) {
+    function githubFetch(url, options = {}) {
       const headers = {
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
         ...(options.headers || {})
       };
-      if (token) headers.Authorization = `Bearer ${token}`;
       return fetch(url, { ...options, headers });
     }
 
