@@ -526,7 +526,7 @@
         grid-template-columns: 1fr;
       }
       .cloud-panel {
-        grid-template-columns: minmax(0, 1fr) minmax(84px, auto) minmax(92px, auto);
+        grid-template-columns: minmax(0, 1fr) minmax(120px, auto);
         gap: 6px;
         align-items: end;
       }
@@ -579,12 +579,10 @@
       .rules-grid {
         padding: 10px;
       }
-      .cloud-actions button,
-      .cloud-actions .cloud-link {
+      .cloud-actions button {
         width: 100%;
       }
-      .cloud-actions button,
-      .cloud-actions .cloud-link {
+      .cloud-actions button {
         min-height: 38px;
         padding: 6px 8px;
         font-size: 13px;
@@ -777,14 +775,11 @@
     </div>
     <section class="cloud-panel" aria-label="雲端回顧">
       <div>
-        <label for="cloudPassword">密碼設定 <span class="password-help">要保存資料時，先按「產生回顧檔」，再按「上傳到 GitHub」把資料放到 reviews/ 目錄下；查詢與載入回顧請按「回顧紀錄」。請記住自行設定的密碼。</span></label>
+        <label for="cloudPassword">密碼設定 <span class="password-help">要保存資料時，先輸入密碼並按「下載 HTML檔」。同一瀏覽器可在「回顧紀錄」中直接載入；若要跨裝置查詢，請將 HTML 檔放入 reviews/ 目錄。</span></label>
         <input id="cloudPassword" type="password" autocomplete="off" placeholder="自訂回顧讀取密碼">
       </div>
       <div class="cloud-actions">
-        <button id="uploadCloudBtn" class="secondary" disabled>產生回顧檔</button>
-      </div>
-      <div class="cloud-actions">
-        <a class="cloud-link" href="https://github.com/chenjica/ER-surgery-/upload/gh-pages/reviews" target="_blank" rel="noopener">上傳到 GitHub</a>
+        <button id="uploadCloudBtn" class="secondary" disabled>下載 HTML檔</button>
       </div>
     </section>
     <div id="cloudStatus" class="cloud-status"></div>
@@ -973,8 +968,7 @@
         currentWorkbook = {
           name: file.name,
           type: file.type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          size: file.size,
-          dataBase64: arrayBufferToBase64(await file.arrayBuffer())
+          size: file.size
         };
         const rows = await readWorkbookRows(file);
         const parsed = parseRows(rows);
@@ -1324,7 +1318,7 @@
         return;
       }
       try {
-        setCloudStatus("正在產生回顧檔...");
+        setCloudStatus("正在產生 HTML 回顧檔...");
         uploadCloudBtn.disabled = true;
         const packageData = {
           version: 2,
@@ -1332,20 +1326,70 @@
           sourceFile: {
             name: currentWorkbook.name,
             type: currentWorkbook.type,
-            size: currentWorkbook.size,
-            dataBase64: currentWorkbook.dataBase64
+            size: currentWorkbook.size
           },
           records,
           reviewState: Object.fromEntries(reviewState.entries())
         };
         const gatedReview = await createPasswordGatedReview(packageData, password);
-        const fileName = `${timestampForPath()}_${sanitizeFileName(currentWorkbook.name)}.review.json`;
-        downloadTextFile(fileName, JSON.stringify(gatedReview, null, 2), "application/json;charset=utf-8");
-        setCloudStatus(`已產生 ${fileName}。請點「上傳到 GitHub」將檔案放到 reviews/ 目錄。`);
+        const fileName = `${sanitizeFileName(stripExtension(currentWorkbook.name))}_${timestampForFileName()}.review.html`;
+        saveLocalReview(fileName, gatedReview);
+        downloadTextFile(fileName, buildReviewHtml(fileName, gatedReview), "text/html;charset=utf-8");
+        setCloudStatus(`已下載 ${fileName}，並存入本機回顧紀錄。可至「開啟回顧紀錄」輸入密碼載入。`);
       } catch (error) {
         setCloudStatus(`產生失敗：${error.message}`, "bad");
       } finally {
         uploadCloudBtn.disabled = records.length === 0;
+      }
+    }
+
+    function buildReviewHtml(fileName, reviewPackage) {
+      const json = JSON.stringify(reviewPackage).replace(/</g, "\\u003c");
+      return `<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(fileName)}</title>
+  <style>
+    body { margin: 0; padding: 24px; color: #17212b; background: #f4f7fa; font-family: "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif; line-height: 1.5; }
+    main { max-width: 760px; margin: 0 auto; background: #fff; border: 1px solid #d7dee6; border-radius: 8px; padding: 18px; }
+    h1 { margin: 0 0 8px; font-size: 22px; }
+    p { color: #64707d; }
+    a { color: #176b87; font-weight: 750; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>急診手術審查回顧檔</h1>
+    <p>來源檔案：${escapeHtml(reviewPackage.payload?.sourceFile?.name || "")}</p>
+    <p>建立時間：${escapeHtml(formatDateTimeForFile(reviewPackage.payload?.uploadedAt))}</p>
+    <p>請將此檔保存，或放入網站的 reviews/ 目錄。回到 <a href="../review.html">回顧紀錄</a> 後，點選紀錄並輸入建立時設定的密碼即可載入。</p>
+  </main>
+  <script id="review-package" type="application/json">${json}</scr${""}ipt>
+</body>
+</html>`;
+    }
+
+    function saveLocalReview(fileName, reviewPackage) {
+      const item = {
+        id: `${Date.now()}_${fileName}`,
+        name: fileName,
+        path: `local/${fileName}`,
+        size: JSON.stringify(reviewPackage).length,
+        savedAt: new Date().toISOString(),
+        package: reviewPackage
+      };
+      const reviews = loadLocalReviews().filter(review => review.name !== fileName);
+      reviews.unshift(item);
+      localStorage.setItem("erReviewHtmlRecords", JSON.stringify(reviews.slice(0, 50)));
+    }
+
+    function loadLocalReviews() {
+      try {
+        return JSON.parse(localStorage.getItem("erReviewHtmlRecords") || "[]");
+      } catch {
+        return [];
       }
     }
 
@@ -1446,8 +1490,24 @@
       return date.toISOString().replace(/[:.]/g, "-");
     }
 
+    function timestampForFileName() {
+      const date = new Date();
+      return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}_${pad2(date.getHours())}-${pad2(date.getMinutes())}`;
+    }
+
+    function formatDateTimeForFile(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.valueOf())) return String(value);
+      return date.toLocaleString("zh-TW", { hour12: false });
+    }
+
     function sanitizeFileName(name) {
       return String(name || "review").replace(/[\\/:*?"<>|#%&{}$!'@+=`]/g, "_").slice(0, 80);
+    }
+
+    function stripExtension(name) {
+      return String(name || "review").replace(/\.[^.]+$/, "");
     }
 
     function setCloudStatus(message, level = "") {

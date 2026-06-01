@@ -459,12 +459,12 @@
         <button id="refreshBtn">查詢紀錄</button>
       </div>
     </div>
-    <div id="statusLine" class="status-line">雲端位置：chenjica/ER-surgery- 的 reviews/ 目錄。</div>
+    <div id="statusLine" class="status-line">會列出本機已產生的回顧 HTML，以及 chenjica/ER-surgery- 的 reviews/ 目錄。</div>
   </header>
 
   <main>
     <section class="panel">
-      <h2>雲端紀錄</h2>
+      <h2>回顧紀錄</h2>
       <div id="recordList" class="record-list">
         <div class="empty">尚未查詢</div>
       </div>
@@ -482,9 +482,10 @@
     const CLOUD_OWNER = "chenjica";
     const CLOUD_REPO = "ER-surgery-";
     const CLOUD_DIR = "reviews";
+    const LOCAL_REVIEW_KEY = "erReviewHtmlRecords";
 
     let cloudItems = [];
-    let selectedPath = "";
+    let selectedId = "";
 
     const cloudPassword = document.getElementById("cloudPassword");
     const refreshBtn = document.getElementById("refreshBtn");
@@ -498,21 +499,27 @@
 
     async function listCloudReviews() {
       try {
-        setStatus("正在查詢雲端紀錄...");
+        setStatus("正在查詢回顧紀錄...");
         refreshBtn.disabled = true;
-        const response = await githubFetch(`${githubApiBase()}/contents/${CLOUD_DIR}`);
+        const localItems = loadLocalReviews().map(item => ({ ...item, source: "local" }));
+        let remoteItems = [];
+        const response = await githubFetch(`${githubApiBase()}/contents/${CLOUD_DIR}?ref=gh-pages`);
         if (response.status === 404) {
-          cloudItems = [];
+          remoteItems = [];
         } else if (!response.ok) {
           throw new Error(await response.text());
         } else {
           const data = await response.json();
-          cloudItems = Array.isArray(data)
-            ? data.filter(item => item.type === "file" && item.name.endsWith(".review.json")).sort((a, b) => b.name.localeCompare(a.name))
+          remoteItems = Array.isArray(data)
+            ? data
+                .filter(item => item.type === "file" && (item.name.endsWith(".review.html") || item.name.endsWith(".review.json")))
+                .map(item => ({ ...item, source: "cloud" }))
+                .sort((a, b) => b.name.localeCompare(a.name))
             : [];
         }
+        cloudItems = [...localItems, ...remoteItems];
         renderRecordList();
-        setStatus(`查詢完成，共 ${cloudItems.length} 筆雲端紀錄。`);
+        setStatus(`查詢完成，共 ${cloudItems.length} 筆回顧紀錄（本機 ${localItems.length}，雲端 ${remoteItems.length}）。`);
       } catch (error) {
         setStatus(`查詢失敗：${error.message}`, "bad");
       } finally {
@@ -522,41 +529,72 @@
 
     function renderRecordList() {
       if (!cloudItems.length) {
-        recordList.innerHTML = `<div class="empty">沒有雲端紀錄</div>`;
+        recordList.innerHTML = `<div class="empty">沒有回顧紀錄</div>`;
         return;
       }
       recordList.innerHTML = cloudItems.map(item => {
         const parsed = parseReviewFileName(item.name);
+        const itemId = item.id || item.path || item.name;
+        const sourceLabel = item.source === "local" ? "本機" : "雲端";
         return `
-          <button class="record-item ${item.path === selectedPath ? "active" : ""}" data-path="${escapeAttr(item.path)}">
+          <button class="record-item ${itemId === selectedId ? "active" : ""}" data-index="${cloudItems.indexOf(item)}">
             <strong>${escapeHtml(parsed.fileName || item.name)}</strong>
-            <span>${escapeHtml(parsed.dateText || "時間未解析")} · ${formatBytes(item.size)}</span>
+            <span>${sourceLabel} · ${escapeHtml(parsed.dateText || formatDateTime(item.savedAt) || "時間未解析")} · ${formatBytes(item.size)}</span>
           </button>
         `;
       }).join("");
-      recordList.querySelectorAll(".record-item").forEach(button => button.addEventListener("click", () => loadCloudReview(button.dataset.path)));
+      recordList.querySelectorAll(".record-item").forEach(button => button.addEventListener("click", () => loadCloudReview(Number(button.dataset.index))));
     }
 
-    async function loadCloudReview(path) {
+    async function loadCloudReview(index) {
       if (!cloudPassword.value) {
         setStatus("請先輸入讀取密碼。", "bad");
         return;
       }
+      const item = cloudItems[index];
+      if (!item) return;
       try {
-        selectedPath = path;
+        selectedId = item.id || item.path || item.name;
         renderRecordList();
         detail.innerHTML = `<div class="empty">正在下載並驗證密碼...</div>`;
-        setStatus("正在下載並驗證密碼...");
-        const response = await githubFetch(`${githubApiBase()}/contents/${encodePath(path)}`);
-        if (!response.ok) throw new Error(await response.text());
-        const data = await response.json();
-        const reviewPackage = JSON.parse(base64ToText((data.content || "").replace(/\s+/g, "")));
+        setStatus("正在讀取並驗證密碼...");
+        const reviewPackage = item.source === "local" ? item.package : await fetchCloudReviewPackage(item);
         const packageData = await openPasswordGatedReview(reviewPackage, cloudPassword.value);
-        renderDetail(packageData, path);
-        setStatus(`已載入：${packageData.sourceFile?.name || path}`);
+        renderDetail(packageData, item.name || item.path || "");
+        setStatus(`已載入：${packageData.sourceFile?.name || item.name || item.path}`);
       } catch (error) {
         detail.innerHTML = `<div class="empty">載入失敗，請確認讀取密碼。</div>`;
         setStatus(`載入失敗：${error.message}`, "bad");
+      }
+    }
+
+    async function fetchCloudReviewPackage(item) {
+      if (item.name?.endsWith(".review.html")) {
+        const response = item.download_url
+          ? await fetch(item.download_url)
+          : await fetch(`${location.origin}/${CLOUD_REPO}/${encodePath(item.path)}`);
+        if (!response.ok) throw new Error(await response.text());
+        return extractReviewPackageFromHtml(await response.text());
+      }
+      const response = await githubFetch(`${githubApiBase()}/contents/${encodePath(item.path)}?ref=gh-pages`);
+      if (!response.ok) throw new Error(await response.text());
+      const data = await response.json();
+      return JSON.parse(base64ToText((data.content || "").replace(/\s+/g, "")));
+    }
+
+    function extractReviewPackageFromHtml(htmlText) {
+      const doc = new DOMParser().parseFromString(htmlText, "text/html");
+      const script = doc.getElementById("review-package");
+      if (!script) throw new Error("找不到回顧資料區塊。");
+      return JSON.parse(script.textContent || "{}");
+    }
+
+    function loadLocalReviews() {
+      try {
+        const items = JSON.parse(localStorage.getItem(LOCAL_REVIEW_KEY) || "[]");
+        return Array.isArray(items) ? items : [];
+      } catch {
+        return [];
       }
     }
 
@@ -579,7 +617,7 @@
         <div class="meta">
           <span>來源檔案</span><strong>${escapeHtml(packageData.sourceFile?.name || "")}</strong>
           <span>上傳時間</span><strong>${escapeHtml(formatDateTime(packageData.uploadedAt))}</strong>
-          <span>雲端路徑</span><strong>${escapeHtml(path)}</strong>
+          <span>紀錄來源</span><strong>${escapeHtml(path)}</strong>
         </div>
         <div class="table-wrap">
           <table>
@@ -691,7 +729,11 @@
 
     function parseReviewFileName(name) {
       const match = name.match(/^(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})-\d+Z_(.+)\.review\.json$/);
-      if (!match) return { fileName: name, dateText: "" };
+      if (!match) {
+        const htmlMatch = name.match(/^(.+)_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2})\.review\.html$/);
+        if (!htmlMatch) return { fileName: name, dateText: "" };
+        return { fileName: htmlMatch[1].replace(/_/g, " "), dateText: `${htmlMatch[2]} ${htmlMatch[3].replace(/-/g, ":")}` };
+      }
       const stamp = match[1];
       return { fileName: match[2].replace(/_/g, " "), dateText: `${stamp.slice(0, 10)} ${stamp.slice(11).replace(/-/g, ":")}` };
     }
