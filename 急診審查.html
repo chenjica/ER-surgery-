@@ -1352,21 +1352,229 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(fileName)}</title>
   <style>
-    body { margin: 0; padding: 24px; color: #17212b; background: #f4f7fa; font-family: "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif; line-height: 1.5; }
-    main { max-width: 760px; margin: 0 auto; background: #fff; border: 1px solid #d7dee6; border-radius: 8px; padding: 18px; }
-    h1 { margin: 0 0 8px; font-size: 22px; }
-    p { color: #64707d; }
-    a { color: #176b87; font-weight: 750; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #17212b; background: #f4f7fa; font-family: "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif; font-size: 15px; line-height: 1.45; }
+    header { background: #fff; border-bottom: 1px solid #d7dee6; padding: 14px 24px; }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    p { margin: 6px 0; color: #64707d; }
+    label { display: block; margin: 14px 0 4px; color: #64707d; font-size: 12px; font-weight: 700; }
+    .unlock { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(110px, auto); gap: 10px; align-items: end; max-width: 760px; }
+    input, button { min-height: 40px; border-radius: 6px; font: inherit; }
+    input { width: 100%; border: 1px solid #d7dee6; padding: 7px 9px; }
+    button { border: 1px solid #176b87; background: #176b87; color: #fff; padding: 7px 14px; cursor: pointer; font-weight: 750; }
+    main { padding: 14px 24px 28px; }
+    .status-line { min-height: 20px; margin-top: 8px; color: #64707d; font-size: 12px; }
+    .summary { display: grid; grid-template-columns: repeat(5, minmax(90px, 1fr)); gap: 8px; margin-bottom: 12px; }
+    .metric { border: 1px solid #d7dee6; border-radius: 6px; padding: 6px 8px; display: flex; justify-content: space-between; gap: 8px; align-items: center; background: #fff; }
+    .metric span { color: #64707d; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .metric strong { font-size: 19px; line-height: 1; }
+    .meta { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 6px 10px; color: #64707d; margin-bottom: 12px; }
+    .meta strong { color: #17212b; overflow-wrap: anywhere; }
+    .table-wrap { border: 1px solid #d7dee6; border-radius: 8px; overflow: auto; background: #fff; max-height: 70vh; }
+    table { width: 100%; min-width: 1280px; border-collapse: separate; border-spacing: 0; }
+    th, td { border-bottom: 1px solid #d7dee6; border-right: 1px solid #e7ecf1; padding: 7px 8px; text-align: left; vertical-align: top; background: #fff; }
+    th { position: sticky; top: 0; z-index: 2; background: #edf3f7; font-weight: 800; white-space: nowrap; }
+    tr.bad td { background: #fff1f0; }
+    tr.check td { background: #fff7df; }
+    .pill { display: inline-flex; align-items: center; min-height: 24px; border-radius: 999px; padding: 3px 8px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+    .pill.ok { color: #16794c; background: #eaf7f0; }
+    .pill.bad { color: #b42318; background: #ffe4e0; }
+    .pill.check { color: #9a6700; background: #fff1bd; }
+    .empty { padding: 36px; text-align: center; color: #64707d; background: #fff; border: 1px dashed #d7dee6; border-radius: 8px; }
+    @media (max-width: 680px) {
+      header, main { padding-left: 12px; padding-right: 12px; }
+      .unlock { grid-template-columns: 1fr; }
+      .summary { grid-template-columns: 1fr 1fr; }
+      .meta { grid-template-columns: 1fr; }
+      .table-wrap { max-height: none; overflow: visible; border: 0; background: transparent; }
+      table, thead, tbody, tr, th, td { display: block; }
+      table { min-width: 0; }
+      thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+      tbody { display: grid; gap: 8px; }
+      tbody tr { border: 1px solid #d7dee6; border-radius: 6px; overflow: hidden; background: #fff; }
+      tr.bad, tr.check { background: #fff1f0; }
+      tr.check { background: #fff7df; }
+      tr.bad td, tr.check td { background: transparent; }
+      td { display: grid; grid-template-columns: minmax(70px, 28%) minmax(0, 1fr); gap: 6px; border-right: 0; padding: 6px 8px; overflow-wrap: anywhere; }
+      td::before { content: attr(data-label); color: #64707d; font-size: 12px; font-weight: 800; }
+      td:last-child { border-bottom: 0; }
+    }
   </style>
 </head>
 <body>
-  <main>
+  <header>
     <h1>急診手術審查回顧檔</h1>
     <p>來源檔案：${escapeHtml(reviewPackage.payload?.sourceFile?.name || "")}</p>
     <p>建立時間：${escapeHtml(formatDateTimeForFile(reviewPackage.payload?.uploadedAt))}</p>
-    <p>請將此檔保存，或放入網站的 reviews/ 目錄。回到 <a href="../review.html">回顧紀錄</a> 後，點選紀錄並輸入建立時設定的密碼即可載入。</p>
+    <div class="unlock">
+      <div>
+        <label for="reviewPassword">讀取密碼</label>
+        <input id="reviewPassword" type="password" autocomplete="off" placeholder="輸入建立時設定的密碼">
+      </div>
+      <button id="openBtn">開啟內容</button>
+    </div>
+    <div id="statusLine" class="status-line"></div>
+  </header>
+  <main id="detail">
+    <div class="empty">請輸入密碼後開啟回顧內容。</div>
   </main>
   <script id="review-package" type="application/json">${json}</scr${""}ipt>
+  <script>
+    const reviewPackage = JSON.parse(document.getElementById("review-package").textContent || "{}");
+    const reviewPassword = document.getElementById("reviewPassword");
+    const openBtn = document.getElementById("openBtn");
+    const detail = document.getElementById("detail");
+    const statusLine = document.getElementById("statusLine");
+    openBtn.addEventListener("click", openReview);
+    reviewPassword.addEventListener("keydown", event => {
+      if (event.key === "Enter") openReview();
+    });
+
+    async function openReview() {
+      if (!reviewPassword.value) {
+        setStatus("請先輸入讀取密碼。", "bad");
+        return;
+      }
+      try {
+        setStatus("正在驗證密碼...");
+        const packageData = await openPasswordGatedReview(reviewPackage, reviewPassword.value);
+        renderDetail(packageData);
+        setStatus("已開啟回顧內容。");
+      } catch (error) {
+        detail.innerHTML = '<div class="empty">載入失敗，請確認讀取密碼。</div>';
+        setStatus("載入失敗：" + error.message, "bad");
+      }
+    }
+
+    async function openPasswordGatedReview(reviewPackage, password) {
+      if (reviewPackage.version !== 2 || reviewPackage.access !== "password-gated") {
+        throw new Error("此紀錄不是新版密碼讀取格式。");
+      }
+      const salt = base64ToBytes(reviewPackage.auth && reviewPackage.auth.salt || "");
+      const expected = reviewPackage.auth && reviewPackage.auth.hash || "";
+      const actual = await hashCloudPassword(password, salt);
+      if (!constantTimeEqual(actual, expected)) {
+        throw new Error("讀取密碼不正確。");
+      }
+      return reviewPackage.payload;
+    }
+
+    async function hashCloudPassword(password, salt) {
+      const baseKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
+      const key = await crypto.subtle.deriveKey(
+        { name: "PBKDF2", salt, iterations: 250000, hash: "SHA-256" },
+        baseKey,
+        { name: "HMAC", hash: "SHA-256", length: 256 },
+        true,
+        ["sign"]
+      );
+      return arrayBufferToBase64(await crypto.subtle.exportKey("raw", key));
+    }
+
+    function renderDetail(packageData) {
+      const records = packageData.records || [];
+      const state = packageData.reviewState || {};
+      const counts = records.reduce((acc, record) => {
+        const status = record.audit && record.audit.status || "check";
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {});
+      detail.innerHTML =
+        '<div class="summary">' +
+          metric("載入筆數", records.length) +
+          metric("符合", counts.ok || 0) +
+          metric("不符合", counts.bad || 0) +
+          metric("待確認", counts.check || 0) +
+          metric("審查紀錄", Object.keys(state).length) +
+        '</div>' +
+        '<div class="meta">' +
+          '<span>來源檔案</span><strong>' + escapeHtml(packageData.sourceFile && packageData.sourceFile.name || "") + '</strong>' +
+          '<span>建立時間</span><strong>' + escapeHtml(formatDateTime(packageData.uploadedAt)) + '</strong>' +
+        '</div>' +
+        '<div class="table-wrap"><table><thead><tr>' +
+          '<th>狀態</th><th>審查結果</th><th>審查備註</th><th>主治醫師申訴</th><th>申訴回覆</th><th>審核表類別</th><th>病歷號</th><th>病人姓名</th><th>主刀醫師姓名</th><th>診斷名稱</th><th>手術名稱</th><th>不符合項目</th>' +
+        '</tr></thead><tbody>' +
+          records.map(record => renderReviewRow(record, state[record.id] || {})).join("") +
+        '</tbody></table></div>';
+    }
+
+    function metric(label, value) {
+      return '<div class="metric"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(value) + '</strong></div>';
+    }
+
+    function renderReviewRow(record, state) {
+      const status = record.audit && record.audit.status || "check";
+      const label = status === "ok" ? "符合" : status === "bad" ? "不符合" : "待確認";
+      const issues = record.audit && record.audit.issues && record.audit.issues.length ? record.audit.issues.join("；") : "無";
+      return '<tr class="' + (status === "bad" ? "bad" : status === "check" ? "check" : "") + '">' +
+        '<td data-label="狀態"><span class="pill ' + status + '">' + label + '</span></td>' +
+        cell("審查結果", state.result || "") +
+        cell("審查備註", state.note || "") +
+        cell("主治醫師申訴", state.appeal || "") +
+        cell("申訴回覆", state.reply || "") +
+        cell("審核表類別", record.category || "") +
+        cell("病歷號", record.chartNo || "") +
+        cell("病人姓名", record.patient || "") +
+        cell("主刀醫師姓名", record.surgeon || "") +
+        cell("診斷名稱", record.diagnosis || "") +
+        cell("手術名稱", record.surgery || "") +
+        cell("不符合項目", issues) +
+      '</tr>';
+    }
+
+    function cell(label, value) {
+      return '<td data-label="' + escapeAttr(label) + '">' + escapeHtml(value) + '</td>';
+    }
+
+    function constantTimeEqual(a, b) {
+      if (a.length !== b.length) return false;
+      let diff = 0;
+      for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+      return diff === 0;
+    }
+
+    function arrayBufferToBase64(buffer) {
+      const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+      let binary = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+      }
+      return btoa(binary);
+    }
+
+    function base64ToBytes(base64) {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes;
+    }
+
+    function formatDateTime(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.valueOf())) return value;
+      return date.toLocaleString("zh-TW", { hour12: false });
+    }
+
+    function setStatus(message, level) {
+      statusLine.textContent = message;
+      statusLine.style.color = level === "bad" ? "#b42318" : "#64707d";
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value);
+    }
+  </scr${""}ipt>
 </body>
 </html>`;
     }
