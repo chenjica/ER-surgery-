@@ -23,6 +23,11 @@
 
     * { box-sizing: border-box; }
 
+    html {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
     body {
       margin: 0;
       color: var(--ink);
@@ -30,6 +35,9 @@
       font-family: "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif;
       font-size: 15px;
       line-height: 1.45;
+      -webkit-text-size-adjust: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
     }
 
     header {
@@ -45,6 +53,7 @@
       margin: 0 0 10px;
       font-size: 22px;
       letter-spacing: 0;
+      white-space: nowrap;
     }
 
     .topline {
@@ -53,6 +62,7 @@
       justify-content: space-between;
       gap: 12px;
       margin-bottom: 10px;
+      min-width: 0;
     }
 
     .back-link {
@@ -231,6 +241,7 @@
       border: 1px solid var(--line);
       border-radius: 8px;
       overflow: auto;
+      -webkit-overflow-scrolling: touch;
       max-height: calc(100vh - 332px);
       background: #fff;
     }
@@ -285,7 +296,13 @@
       text-align: center;
     }
 
-    @media (max-width: 980px) {
+    @media (max-width: 1100px) {
+      body {
+        font-size: 14px;
+      }
+      header {
+        position: static;
+      }
       .toolbar, main {
         grid-template-columns: 1fr;
       }
@@ -298,6 +315,130 @@
       }
       .summary {
         grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .topline {
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+      .back-link {
+        white-space: normal;
+      }
+      .toolbar {
+        gap: 8px;
+      }
+      button,
+      input {
+        min-height: 42px;
+      }
+      button {
+        width: 100%;
+      }
+      .metric {
+        min-height: 44px;
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .metric strong {
+        font-size: 18px;
+      }
+      .meta {
+        grid-template-columns: 1fr;
+        gap: 2px;
+      }
+      .meta strong {
+        margin-bottom: 8px;
+        overflow-wrap: anywhere;
+      }
+      .detail {
+        padding: 10px;
+      }
+      .record-list {
+        max-height: 44vh;
+      }
+      .table-wrap {
+        max-height: none;
+        overflow: visible;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+      }
+      table,
+      thead,
+      tbody,
+      tr,
+      th,
+      td {
+        display: block;
+      }
+      table {
+        min-width: 0;
+      }
+      thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+      }
+      tbody {
+        display: grid;
+        gap: 10px;
+      }
+      tbody tr {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      tr.bad {
+        background: var(--danger-bg);
+      }
+      tr.check {
+        background: var(--warn-bg);
+      }
+      tr.bad td,
+      tr.check td {
+        background: transparent;
+      }
+      th,
+      td {
+        width: 100%;
+        min-width: 0;
+        border-right: 0;
+        padding: 8px 10px;
+      }
+      td {
+        display: grid;
+        grid-template-columns: minmax(88px, 34%) minmax(0, 1fr);
+        gap: 8px;
+        align-items: start;
+        border-bottom-color: rgba(215, 222, 230, .78);
+        overflow-wrap: anywhere;
+      }
+      td::before {
+        content: attr(data-label);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 750;
+      }
+      td:last-child {
+        border-bottom: 0;
+      }
+    }
+
+    @media (max-width: 680px) {
+      header {
+        padding: 10px 12px 12px;
+      }
+      main {
+        padding: 10px 10px 18px;
+        gap: 10px;
+      }
+      h1 {
+        font-size: 20px;
       }
     }
   </style>
@@ -472,18 +613,18 @@
       const issues = record.audit?.issues?.length ? record.audit.issues.join("；") : "無";
       return `
         <tr class="${status === "bad" ? "bad" : status === "check" ? "check" : ""}">
-          <td><span class="pill ${status}">${label}</span></td>
-          <td>${escapeHtml(state.result || "")}</td>
-          <td>${escapeHtml(state.note || "")}</td>
-          <td>${escapeHtml(state.appeal || "")}</td>
-          <td>${escapeHtml(state.reply || "")}</td>
-          <td>${escapeHtml(record.category || "")}</td>
-          <td>${escapeHtml(record.chartNo || "")}</td>
-          <td>${escapeHtml(record.patient || "")}</td>
-          <td>${escapeHtml(record.surgeon || "")}</td>
-          <td>${escapeHtml(record.diagnosis || "")}</td>
-          <td>${escapeHtml(record.surgery || "")}</td>
-          <td>${escapeHtml(issues)}</td>
+          <td data-label="狀態"><span class="pill ${status}">${label}</span></td>
+          <td data-label="審查結果">${escapeHtml(state.result || "")}</td>
+          <td data-label="審查備註">${escapeHtml(state.note || "")}</td>
+          <td data-label="主治醫師申訴">${escapeHtml(state.appeal || "")}</td>
+          <td data-label="申訴回覆">${escapeHtml(state.reply || "")}</td>
+          <td data-label="審核表類別">${escapeHtml(record.category || "")}</td>
+          <td data-label="病歷號">${escapeHtml(record.chartNo || "")}</td>
+          <td data-label="病人姓名">${escapeHtml(record.patient || "")}</td>
+          <td data-label="主刀醫師姓名">${escapeHtml(record.surgeon || "")}</td>
+          <td data-label="診斷名稱">${escapeHtml(record.diagnosis || "")}</td>
+          <td data-label="手術名稱">${escapeHtml(record.surgery || "")}</td>
+          <td data-label="不符合項目">${escapeHtml(issues)}</td>
         </tr>
       `;
     }
