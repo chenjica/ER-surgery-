@@ -74,7 +74,7 @@
 
     .toolbar {
       display: grid;
-      grid-template-columns: minmax(220px, .8fr) minmax(120px, .35fr);
+      grid-template-columns: minmax(180px, .55fr) minmax(260px, 1fr) minmax(120px, .25fr);
       gap: 10px;
       align-items: end;
     }
@@ -440,6 +440,9 @@
       h1 {
         font-size: 20px;
       }
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -455,11 +458,15 @@
         <input id="cloudPassword" type="password" autocomplete="off" placeholder="輸入上傳者設定的密碼">
       </div>
       <div>
+        <label for="backendUrl">留言板後端網址</label>
+        <input id="backendUrl" type="url" autocomplete="url" placeholder="https://.../exec">
+      </div>
+      <div>
         <label>&nbsp;</label>
         <button id="refreshBtn">查詢紀錄</button>
       </div>
     </div>
-    <div id="statusLine" class="status-line">會列出本機已產生的回顧 HTML，以及 chenjica/ER-surgery- 的 reviews/ 目錄。</div>
+    <div id="statusLine" class="status-line">會列出本機回顧、留言板後端紀錄，以及 chenjica/ER-surgery- 的 reviews/ 目錄。</div>
   </header>
 
   <main>
@@ -488,12 +495,17 @@
     let selectedId = "";
 
     const cloudPassword = document.getElementById("cloudPassword");
+    const backendUrl = document.getElementById("backendUrl");
     const refreshBtn = document.getElementById("refreshBtn");
     const recordList = document.getElementById("recordList");
     const detail = document.getElementById("detail");
     const statusLine = document.getElementById("statusLine");
 
     refreshBtn.addEventListener("click", listCloudReviews);
+    backendUrl.value = localStorage.getItem("erReviewBackendUrl") || "";
+    backendUrl.addEventListener("change", () => {
+      localStorage.setItem("erReviewBackendUrl", backendUrl.value.trim());
+    });
 
     listCloudReviews();
 
@@ -502,6 +514,9 @@
         setStatus("正在查詢回顧紀錄...");
         refreshBtn.disabled = true;
         const localItems = loadLocalReviews().map(item => ({ ...item, source: "local" }));
+        const endpoint = backendUrl.value.trim();
+        if (endpoint) localStorage.setItem("erReviewBackendUrl", endpoint);
+        const backendItems = endpoint ? await listBackendReviews(endpoint) : [];
         let remoteItems = [];
         const response = await githubFetch(`${githubApiBase()}/contents/${CLOUD_DIR}?ref=gh-pages`);
         if (response.status === 404) {
@@ -517,9 +532,9 @@
                 .sort((a, b) => b.name.localeCompare(a.name))
             : [];
         }
-        cloudItems = [...localItems, ...remoteItems];
+        cloudItems = [...localItems, ...backendItems, ...remoteItems];
         renderRecordList();
-        setStatus(`查詢完成，共 ${cloudItems.length} 筆回顧紀錄（本機 ${localItems.length}，雲端 ${remoteItems.length}）。`);
+        setStatus(`查詢完成，共 ${cloudItems.length} 筆回顧紀錄（本機 ${localItems.length}，後端 ${backendItems.length}，雲端 ${remoteItems.length}）。`);
       } catch (error) {
         setStatus(`查詢失敗：${error.message}`, "bad");
       } finally {
@@ -535,7 +550,7 @@
       recordList.innerHTML = cloudItems.map(item => {
         const parsed = parseReviewFileName(item.name);
         const itemId = item.id || item.path || item.name;
-        const sourceLabel = item.source === "local" ? "本機" : "雲端";
+        const sourceLabel = item.source === "local" ? "本機" : item.source === "backend" ? "後端" : "雲端";
         return `
           <button class="record-item ${itemId === selectedId ? "active" : ""}" data-index="${cloudItems.indexOf(item)}">
             <strong>${escapeHtml(parsed.fileName || item.name)}</strong>
@@ -558,7 +573,9 @@
         renderRecordList();
         detail.innerHTML = `<div class="empty">正在下載並驗證密碼...</div>`;
         setStatus("正在讀取並驗證密碼...");
-        const reviewPackage = item.source === "local" ? item.package : await fetchCloudReviewPackage(item);
+        const reviewPackage = item.source === "local" || item.source === "backend"
+          ? resolveStoredReviewPackage(item)
+          : await fetchCloudReviewPackage(item);
         const packageData = await openPasswordGatedReview(reviewPackage, cloudPassword.value);
         renderDetail(packageData, item.name || item.path || "");
         setStatus(`已載入：${packageData.sourceFile?.name || item.name || item.path}`);
@@ -580,6 +597,83 @@
       if (!response.ok) throw new Error(await response.text());
       const data = await response.json();
       return JSON.parse(base64ToText((data.content || "").replace(/\s+/g, "")));
+    }
+
+    async function listBackendReviews(endpoint) {
+      try {
+        const url = endpoint.includes("?") ? `${endpoint}&action=list` : `${endpoint}?action=list`;
+        const data = isGoogleAppsScriptEndpoint(endpoint)
+          ? await loadBackendJsonp(url)
+          : await fetchBackendJson(url);
+        const items = Array.isArray(data) ? data : data.items || data.records || [];
+        return items.map((item, index) => normalizeBackendReviewItem(item, index));
+      } catch (error) {
+        setStatus(`後端查詢失敗：${error.message}`, "bad");
+        return [];
+      }
+    }
+
+    function normalizeBackendReviewItem(item, index) {
+      const reviewPackage = item.reviewPackage || item.package || item.data || null;
+      const html = item.reviewHtml || item.html || "";
+      const name = item.fileName || item.name || `backend-${index + 1}.review.html`;
+      return {
+        id: item.id || item.key || `backend-${name}-${index}`,
+        name,
+        size: item.size || JSON.stringify(reviewPackage || html || item).length,
+        savedAt: item.createdAt || item.savedAt || item.uploadedAt || "",
+        source: "backend",
+        package: reviewPackage,
+        html
+      };
+    }
+
+    async function fetchBackendJson(url) {
+      const response = await fetch(url, { method: "GET" });
+      if (!response.ok) throw new Error(await response.text());
+      return response.json();
+    }
+
+    function loadBackendJsonp(url) {
+      return new Promise((resolve, reject) => {
+        const callbackName = `erReviewJsonp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        const separator = url.includes("?") ? "&" : "?";
+        const script = document.createElement("script");
+        const timer = window.setTimeout(() => {
+          cleanup();
+          reject(new Error("後端查詢逾時。"));
+        }, 15000);
+        function cleanup() {
+          window.clearTimeout(timer);
+          delete window[callbackName];
+          script.remove();
+        }
+        window[callbackName] = data => {
+          cleanup();
+          resolve(data);
+        };
+        script.onerror = () => {
+          cleanup();
+          reject(new Error("無法載入後端紀錄。"));
+        };
+        script.src = `${url}${separator}callback=${encodeURIComponent(callbackName)}`;
+        document.body.appendChild(script);
+      });
+    }
+
+    function isGoogleAppsScriptEndpoint(endpoint) {
+      try {
+        const host = new URL(endpoint).hostname;
+        return host.includes("script.google.com") || host.includes("script.googleusercontent.com");
+      } catch {
+        return false;
+      }
+    }
+
+    function resolveStoredReviewPackage(item) {
+      if (item.package) return item.package;
+      if (item.html) return extractReviewPackageFromHtml(item.html);
+      throw new Error("後端資料缺少 reviewPackage 或 reviewHtml。");
     }
 
     function extractReviewPackageFromHtml(htmlText) {
