@@ -492,6 +492,22 @@
         grid-template-columns: 1fr;
         gap: 8px;
       }
+      .cloud-panel {
+        grid-template-columns: minmax(0, 1fr) minmax(84px, auto) minmax(92px, auto);
+        gap: 6px;
+        align-items: end;
+      }
+      .cloud-panel > div {
+        min-width: 0;
+      }
+      .cloud-panel label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .password-help {
+        display: none;
+      }
       .summary {
         grid-template-columns: 1fr 1fr;
         gap: 6px;
@@ -530,14 +546,23 @@
       .rules-grid {
         padding: 10px;
       }
-      .cloud-actions,
       .cloud-actions button,
-      .cloud-actions .cloud-link,
-      button {
+      .cloud-actions .cloud-link {
         width: 100%;
+      }
+      .cloud-actions button,
+      .cloud-actions .cloud-link {
+        min-height: 38px;
+        padding: 6px 8px;
+        font-size: 13px;
+        white-space: nowrap;
       }
       input[type="file"], input[type="search"], select, textarea, button {
         min-height: 42px;
+      }
+      .cloud-panel input[type="password"] {
+        min-height: 38px;
+        padding: 6px 8px;
       }
       .table-wrap {
         overflow: visible;
@@ -566,12 +591,12 @@
       }
       tbody {
         display: grid;
-        gap: 10px;
+        gap: 8px;
       }
       tbody tr {
         background: var(--panel);
         border: 1px solid var(--line);
-        border-radius: 8px;
+        border-radius: 6px;
         box-shadow: var(--shadow);
         overflow: hidden;
       }
@@ -593,12 +618,12 @@
         min-width: 0 !important;
         max-width: none !important;
         border-right: 0;
-        padding: 8px 10px;
+        padding: 6px 8px;
       }
       td {
         display: grid;
-        grid-template-columns: minmax(88px, 34%) minmax(0, 1fr);
-        gap: 8px;
+        grid-template-columns: minmax(70px, 28%) minmax(0, 1fr);
+        gap: 6px;
         align-items: start;
         border-bottom-color: rgba(215, 222, 230, .78);
         overflow: visible;
@@ -638,6 +663,14 @@
       textarea {
         min-width: 0;
         width: 100%;
+      }
+      .cell-review-result select,
+      textarea {
+        min-height: 34px;
+        padding: 5px 7px;
+      }
+      .issue-list {
+        padding-left: 14px;
       }
       .resize-handle {
         display: none;
