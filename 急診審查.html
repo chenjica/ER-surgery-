@@ -95,6 +95,17 @@
       align-items: end;
     }
 
+    .toolbar-actions {
+      min-width: 0;
+    }
+
+    .action-row {
+      display: grid;
+      grid-template-columns: minmax(120px, 1fr);
+      gap: 8px;
+      align-items: stretch;
+    }
+
     label {
       display: block;
       color: var(--muted);
@@ -489,8 +500,30 @@
         padding-top: 10px;
       }
       .toolbar, .rules-grid, .cloud-panel {
-        grid-template-columns: 1fr;
         gap: 8px;
+      }
+      .toolbar {
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
+        align-items: end;
+      }
+      .toolbar > div {
+        min-width: 0;
+      }
+      .toolbar-actions {
+        grid-column: 1 / -1;
+      }
+      .toolbar-actions label {
+        display: none;
+      }
+      .action-row {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      }
+      .action-row button,
+      .action-row .cloud-link {
+        width: 100%;
+      }
+      .rules-grid {
+        grid-template-columns: 1fr;
       }
       .cloud-panel {
         grid-template-columns: minmax(0, 1fr) minmax(84px, auto) minmax(92px, auto);
@@ -559,6 +592,17 @@
       }
       input[type="file"], input[type="search"], select, textarea, button {
         min-height: 42px;
+      }
+      .toolbar input[type="file"],
+      .toolbar input[type="search"],
+      .toolbar select,
+      .toolbar button,
+      .toolbar .cloud-link {
+        min-height: 38px;
+        padding: 6px 8px;
+      }
+      .toolbar label {
+        font-size: 11px;
       }
       .cloud-panel input[type="password"] {
         min-height: 38px;
@@ -697,7 +741,6 @@
       <h1>急診手術審查</h1>
       <div class="title-actions">
         <div class="source-note">診斷比對依據：總院-術委會-規範-2-00001「奇美醫院急診刀分級參考」頁次 42/43、43/43。</div>
-        <a class="cloud-link" href="review.html">開啟回顧紀錄</a>
       </div>
     </div>
     <div class="toolbar">
@@ -724,9 +767,12 @@
         <label for="searchInput">搜尋</label>
         <input id="searchInput" type="search" placeholder="病歷號、姓名、診斷、手術">
       </div>
-      <div>
+      <div class="toolbar-actions">
         <label>&nbsp;</label>
-        <button id="exportBtn" disabled>匯出審查 CSV</button>
+        <div class="action-row">
+          <button id="exportBtn" disabled>匯出審查 CSV</button>
+          <a class="cloud-link" href="review.html">開啟回顧紀錄</a>
+        </div>
       </div>
     </div>
     <section class="cloud-panel" aria-label="雲端回顧">
