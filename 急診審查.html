@@ -434,7 +434,7 @@
 
     .cloud-panel {
       display: grid;
-      grid-template-columns: minmax(220px, .8fr) minmax(150px, .35fr) minmax(180px, .45fr);
+      grid-template-columns: minmax(220px, .8fr) minmax(180px, .35fr);
       gap: 10px;
       align-items: end;
       margin-top: 6px;
@@ -442,7 +442,7 @@
       border-top: 1px solid var(--line);
     }
 
-    .cloud-panel input[type="password"], .cloud-panel input[type="text"], .cloud-panel input[type="url"] {
+    .cloud-panel input[type="password"], .cloud-panel input[type="text"] {
       width: 100%;
       min-height: 36px;
       border: 1px solid var(--line);
@@ -526,7 +526,7 @@
         grid-template-columns: 1fr;
       }
       .cloud-panel {
-        grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) minmax(120px, auto);
+        grid-template-columns: minmax(0, 1fr) minmax(120px, auto);
         gap: 6px;
         align-items: end;
       }
@@ -775,12 +775,8 @@
     </div>
     <section class="cloud-panel" aria-label="雲端回顧">
       <div>
-        <label for="cloudPassword">密碼設定 <span class="password-help">要保存資料時，先輸入回顧讀取密碼與留言板後端網址，再按「上傳審查資料」。後端會收到一筆 JSON 資料。</span></label>
+        <label for="cloudPassword">密碼設定 <span class="password-help">要保存資料時，先輸入回顧讀取密碼，再按「上傳審查資料」。後端會收到一筆 JSON 資料。</span></label>
         <input id="cloudPassword" type="password" autocomplete="off" placeholder="自訂回顧讀取密碼">
-      </div>
-      <div>
-        <label for="backendUrl">留言板後端網址</label>
-        <input id="backendUrl" type="url" autocomplete="url" placeholder="https://.../exec">
       </div>
       <div class="cloud-actions">
         <button id="uploadCloudBtn" class="secondary" disabled>上傳審查資料</button>
@@ -837,6 +833,7 @@
   <script>
     const REQUIRED_YES_FIELDS = ["是否需要填寫", "醫師是否完成", "刀房是否完成", "麻醉審核結果"];
     const REQUIRED_HEADERS = ["審核表類別", "病歷號", "病人姓名", "主刀醫師姓名", "診斷名稱", "手術名稱", "預定手術日", "送單日"];
+    const REVIEW_BACKEND_URL = "https://script.google.com/macros/s/AKfycbwfXu-HTANtMIYm8fvJtSO296wG58u4XLdJ2CgzwXbocDLU-bDJyhaZ3QaXoiauXws6Dg/exec";
     const rules = {
       "777": {
         title: "777 手術",
@@ -934,7 +931,6 @@
     const searchInput = document.getElementById("searchInput");
     const exportBtn = document.getElementById("exportBtn");
     const cloudPassword = document.getElementById("cloudPassword");
-    const backendUrl = document.getElementById("backendUrl");
     const uploadCloudBtn = document.getElementById("uploadCloudBtn");
     const cloudStatus = document.getElementById("cloudStatus");
     const tbody = document.getElementById("tbody");
@@ -947,10 +943,6 @@
     searchInput.addEventListener("input", render);
     exportBtn.addEventListener("click", exportCsv);
     uploadCloudBtn.addEventListener("click", uploadCloudReview);
-    backendUrl.value = localStorage.getItem("erReviewBackendUrl") || "";
-    backendUrl.addEventListener("change", () => {
-      localStorage.setItem("erReviewBackendUrl", backendUrl.value.trim());
-    });
 
     renderRules();
     setupResizableColumns();
@@ -1322,13 +1314,7 @@
         setCloudStatus("請輸入讀取密碼。", "bad");
         return;
       }
-      const endpoint = backendUrl.value.trim();
-      if (!endpoint) {
-        setCloudStatus("請輸入留言板後端網址。", "bad");
-        return;
-      }
       try {
-        localStorage.setItem("erReviewBackendUrl", endpoint);
         setCloudStatus("正在整理並上傳審查資料...");
         uploadCloudBtn.disabled = true;
         const packageData = {
@@ -1345,7 +1331,7 @@
         const gatedReview = await createPasswordGatedReview(packageData, password);
         const fileName = `${sanitizeFileName(stripExtension(currentWorkbook.name))}_${timestampForFileName()}.review.html`;
         const html = buildReviewHtml(fileName, gatedReview);
-        await postReviewToBackend(endpoint, fileName, gatedReview, html);
+        await postReviewToBackend(REVIEW_BACKEND_URL, fileName, gatedReview, html);
         saveLocalReview(fileName, gatedReview);
         setCloudStatus(`已上傳 ${fileName} 到留言板後端，並存入本機回顧紀錄。可至「開啟回顧紀錄」查詢載入。`);
       } catch (error) {
