@@ -74,7 +74,7 @@
 
     .toolbar {
       display: grid;
-      grid-template-columns: minmax(180px, .55fr) minmax(260px, 1fr) minmax(120px, .25fr);
+      grid-template-columns: minmax(180px, 1fr) minmax(120px, auto);
       gap: 10px;
       align-items: end;
     }
@@ -458,10 +458,6 @@
         <input id="cloudPassword" type="password" autocomplete="off" placeholder="輸入上傳者設定的密碼">
       </div>
       <div>
-        <label for="backendUrl">留言板後端網址</label>
-        <input id="backendUrl" type="url" autocomplete="url" placeholder="https://.../exec">
-      </div>
-      <div>
         <label>&nbsp;</label>
         <button id="refreshBtn">查詢紀錄</button>
       </div>
@@ -490,22 +486,18 @@
     const CLOUD_REPO = "ER-surgery-";
     const CLOUD_DIR = "reviews";
     const LOCAL_REVIEW_KEY = "erReviewHtmlRecords";
+    const REVIEW_BACKEND_URL = "https://script.google.com/macros/s/AKfycbwfXu-HTANtMIYm8fvJtSO296wG58u4XLdJ2CgzwXbocDLU-bDJyhaZ3QaXoiauXws6Dg/exec";
 
     let cloudItems = [];
     let selectedId = "";
 
     const cloudPassword = document.getElementById("cloudPassword");
-    const backendUrl = document.getElementById("backendUrl");
     const refreshBtn = document.getElementById("refreshBtn");
     const recordList = document.getElementById("recordList");
     const detail = document.getElementById("detail");
     const statusLine = document.getElementById("statusLine");
 
     refreshBtn.addEventListener("click", listCloudReviews);
-    backendUrl.value = localStorage.getItem("erReviewBackendUrl") || "";
-    backendUrl.addEventListener("change", () => {
-      localStorage.setItem("erReviewBackendUrl", backendUrl.value.trim());
-    });
 
     listCloudReviews();
 
@@ -514,9 +506,7 @@
         setStatus("正在查詢回顧紀錄...");
         refreshBtn.disabled = true;
         const localItems = loadLocalReviews().map(item => ({ ...item, source: "local" }));
-        const endpoint = backendUrl.value.trim();
-        if (endpoint) localStorage.setItem("erReviewBackendUrl", endpoint);
-        const backendItems = endpoint ? await listBackendReviews(endpoint) : [];
+        const backendItems = await listBackendReviews(REVIEW_BACKEND_URL);
         let remoteItems = [];
         const response = await githubFetch(`${githubApiBase()}/contents/${CLOUD_DIR}?ref=gh-pages`);
         if (response.status === 404) {

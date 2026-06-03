@@ -1,4 +1,5 @@
 const SHEET_NAME = "reviews";
+const SPREADSHEET_ID = "17aOihQiPmaOPyHZBGPVpqK8BtcmVO8GNkwQMNIBsxV4";
 
 function doPost(e) {
   const payload = JSON.parse((e.postData && e.postData.contents) || "{}");
@@ -46,7 +47,7 @@ function doGet(e) {
 }
 
 function getReviewSheet_() {
-  const spreadsheet = SpreadsheetApp.getActive();
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sheet = spreadsheet.getSheetByName(SHEET_NAME);
   if (!sheet) sheet = spreadsheet.insertSheet(SHEET_NAME);
   if (sheet.getLastRow() === 0) {
