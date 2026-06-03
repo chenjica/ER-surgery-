@@ -1082,8 +1082,32 @@
 
     function auditRecord(record) {
       const issues = [];
-      const dateStatus = sameDate(record.operationDate, record.submitDate);
-      if (!dateStatus.same) issues.push(`預定手術日與送單日不同：${record.operationDate || "空白"} / ${record.submitDate || "空白"}`);
+      const blankFields = [];
+      const requiredValueMap = {
+        category: "審核表類別",
+        chartNo: "病歷號",
+        patient: "病人姓名",
+        surgeon: "主刀醫師姓名",
+        diagnosis: "診斷名稱",
+        surgery: "手術名稱",
+        operationDate: "預定手術日",
+        submitDate: "送單日",
+        needForm: "是否需要填寫",
+        doctorDone: "醫師是否完成",
+        orDone: "刀房是否完成",
+        anesthesiaDone: "麻醉審核結果"
+      };
+      Object.entries(requiredValueMap).forEach(([field, label]) => {
+        if (isBlank(record[field])) blankFields.push(label);
+      });
+      if (blankFields.length) {
+        issues.push(`欄位空白需人工確認：${blankFields.join("、")}`);
+      }
+
+      if (!isBlank(record.operationDate) && !isBlank(record.submitDate)) {
+        const dateStatus = sameDate(record.operationDate, record.submitDate);
+        if (!dateStatus.same) issues.push(`預定手術日與送單日不同：${record.operationDate} / ${record.submitDate}`);
+      }
 
       const fieldMap = {
         needForm: "是否需要填寫",
@@ -1092,22 +1116,24 @@
         anesthesiaDone: "麻醉審核結果"
       };
       Object.entries(fieldMap).forEach(([field, label]) => {
-        if (String(record[field]).trim() !== "是") issues.push(`${label}不是「是」：${record[field] || "空白"}`);
+        if (!isBlank(record[field]) && String(record[field]).trim() !== "是") issues.push(`${label}不是「是」：${record[field]}`);
       });
 
       const categoryKey = mapCategory(record.category);
       const hasDiagnosis = Boolean(String(record.diagnosis).trim());
       const match = matchDiagnosis(record.diagnosis, categoryKey);
-      if (!categoryKey) {
+      if (!categoryKey && !isBlank(record.category)) {
         issues.push(`未知審核表類別：${record.category || "空白"}`);
-      } else if (!hasDiagnosis) {
-        issues.push("診斷名稱空白，無法比對急診刀分級規範");
-      } else if (!match.matched) {
+      } else if (categoryKey && hasDiagnosis && !match.matched) {
         issues.push(`診斷名稱未命中「${rules[categoryKey].title}」規範關鍵字`);
       }
 
-      const status = issues.length ? ((!categoryKey || !hasDiagnosis) ? "check" : "bad") : "ok";
+      const status = issues.length ? ((blankFields.length || !categoryKey || !hasDiagnosis) ? "check" : "bad") : "ok";
       return { status, issues, match, categoryKey };
+    }
+
+    function isBlank(value) {
+      return String(value ?? "").trim() === "";
     }
 
     function mapCategory(category) {
